@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: benchmark
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    command: >
+      postgres
+      -c shared_buffers=2GB
+      -c effective_cache_size=6GB
+      -c work_mem=64MB
+      -c maintenance_work_mem=1GB
+      -c max_parallel_workers=4
+      -c max_parallel_workers_per_gather=2
+      -c wal_buffers=64MB
+      -c wal_level=minimal
+      -c max_wal_senders=0
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./generated:/generated
+
+  neo4j:
+    image: neo4j:5.26
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_server_memory_heap_initial__size=2G
+      - NEO4J_server_memory_heap_max__size=4G
+      - NEO4J_server_memory_pagecache_size=3G
+      - NEO4J_dbms_memory_transaction_total_max=4G
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./generated:/var/lib/neo4j/import/generated
+
+volumes:
+  postgres_data:
+
+
+# version: '3.8'
+
+# services:
+#   postgres:
+#     image: postgres:14
+#     environment:
+#       POSTGRES_DB: benchmark
+#       POSTGRES_PASSWORD: password
+#       POSTGRES_USER: postgres
+#     ports:
+#       - "5432:5432"
+#     command: >
+#       postgres
+#       -c shared_buffers=2GB
+#       -c effective_cache_size=6GB
+#       -c work_mem=64MB
+#       -c maintenance_work_mem=1GB
+#       -c max_parallel_workers=4
+#       -c max_parallel_workers_per_gather=2
+#       -c wal_buffers=64MB
+#       -c wal_level=minimal
+#       -c max_wal_senders=0
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#       - ./generated:/generated
+
+#   neo4j:
+#     image: neo4j:5.26
+#     environment:
+#       - NEO4J_AUTH=neo4j/password
+#       # ⚡ ВКЛЮЧАЕМ APOC:
+#       - NEO4J_PLUGINS=["apoc"]
+#       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+#       - NEO4J_dbms_security_allow_csv_import_from_file_urls=true
+#       # Настройки памяти для APOC:
+#       - NEO4J_server_memory_heap_initial__size=2G
+#       - NEO4J_server_memory_heap_max__size=4G
+#       - NEO4J_server_memory_pagecache_size=2G
+#     ports:
+#       - "7474:7474"
+#       - "7687:7687"
+#     volumes:
+#       - neo4j_data:/data
+#       - neo4j_logs:/logs
+#       - ./generated:/var/lib/neo4j/import/generated
+
+# volumes:
+#   postgres_data:
+#   neo4j_data:
+#   neo4j_logs:
