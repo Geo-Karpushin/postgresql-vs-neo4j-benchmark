@@ -11,15 +11,13 @@ help:
 	@echo "  make test-small       - Тестирование на SMALL датасете"
 	@echo "  make test-medium      - Тестирование на MEDIUM датасете"
 	@echo "  make test-large       - Тестирование на LARGE датасете"
-	@echo "  make test-all         - Полное тестирование на всех датасетах"
-	@echo "  make test-all-n n=10  - Запустить test-all N раз"
 	@echo ""
 	@echo "=== Docker ==="
 	@echo "  make docker-up        - Запуск всех сервисов Docker"
 	@echo "  make docker-down      - Остановка Docker"
 	@echo ""
 	@echo "=== Просмотр результатов ==="
-	@echo "  make view n=filename  - Просмотр результатов"
+	@echo "  make view n=files_num  - Просмотр результатов"
 	@echo ""
 	@echo "Используйте: make <команда>"
 
@@ -60,13 +58,3 @@ docker-down:
 
 view:
 	. venv/bin/activate && python scripts/view_results.py $(n)
-
-test-all-n:
-	@mkdir -p results/iterations
-	@echo "🚀 Запуск $(n) итераций test-all..."
-	@for i in $$(seq 1 $(n)); do \
-		echo "🎯 Итерация $$i/$(n)"; \
-		$(MAKE) test-all 2>&1 | tee "results/iterations/iteration_$$i.log"; \
-		echo "=========================================="; \
-	done
-	@echo "✅ $(n) итераций завершены! Логи в results/iterations/"

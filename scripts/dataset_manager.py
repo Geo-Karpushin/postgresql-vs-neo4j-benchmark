@@ -16,22 +16,17 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-# ----------------- Конфигурация -----------------
 DATA_DIR = Path("generated")
 SCRIPTS_DIR = Path("scripts")
 RESULTS_DIR = Path("results")
 POSTGRES_CONTAINER = "database-benchmark-postgres-1"
 NEO4J_CONTAINER = "database-benchmark-neo4j-1"
-# retry-параметры для docker операций
 DOCKER_RETRIES = 4
-DOCKER_BACKOFF = 2  # секунды, будут умножаться
+DOCKER_BACKOFF = 2
 
-# ----------------- Логирование -----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 log = logging.getLogger("dataset_manager")
 
-
-# ----------------- Утилиты -----------------
 def run_cmd(cmd: List[str], capture: bool = True, check: bool = True) -> subprocess.CompletedProcess:
     """Унифицированный запуск команд (без shell=True)."""
     return subprocess.run(cmd, text=True, capture_output=capture, check=check)
@@ -43,12 +38,12 @@ def stream_cmd(cmd: List[str]) -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1  # построчный вывод
+        bufsize=1
     )
 
     assert process.stdout is not None
     for line in process.stdout:
-        print(line.rstrip())  # сразу выводим
+        print(line.rstrip())
 
     process.wait()
     return process.returncode
@@ -69,8 +64,6 @@ def retry_cmd(cmd: List[str], retries: int = DOCKER_RETRIES, backoff: int = DOCK
                 delay *= 2
     return False
 
-
-# ----------------- DatasetManager -----------------
 class DatasetManager:
     def __init__(self, dry_run: bool = False):
         self.base_path = DATA_DIR
@@ -78,8 +71,6 @@ class DatasetManager:
         self.results_path = RESULTS_DIR
         self.dry_run = dry_run
         self.results_path.mkdir(parents=True, exist_ok=True)
-
-
 
     def _ensure_dataset_files(self, size: str) -> bool:
         users = self.base_path / size / "users.csv"
@@ -92,7 +83,6 @@ class DatasetManager:
             return False
         return True
 
-    # ---- Основные шаги ----
     def initialize_databases(self) -> bool:
         log.info("🗃️ Инициализация схем баз данных...")
         try:
@@ -124,11 +114,9 @@ class DatasetManager:
         users_host = str(self.base_path / size / "users.csv")
         friends_host = str(self.base_path / size / "friendships.csv")
 
-        # Postgres: копируем в /tmp
         cp_pg_users = ["docker", "cp", users_host, f"{POSTGRES_CONTAINER}:/tmp/users.csv"]
         cp_pg_friends = ["docker", "cp", friends_host, f"{POSTGRES_CONTAINER}:/tmp/friendships.csv"]
 
-        # Neo4j: создаём папку и копируем в import/{size}
         neo4j_dir = f"/var/lib/neo4j/import/{size}"
         mkdir_neo = ["docker", "exec", NEO4J_CONTAINER, "mkdir", "-p", neo4j_dir]
         cp_neo_users = ["docker", "cp", users_host, f"{NEO4J_CONTAINER}:{neo4j_dir}/users.csv"]
@@ -194,13 +182,11 @@ class DatasetManager:
             log.error("❌ Ошибка выполнения бенчмарков")
             return False
 
-    # ---- Топ-уровневая логика ----
     def process_size(self, size: str) -> dict:
         """Обработка одного размера: выполняет все шаги и возвращает словарь с результатами."""
         result = {"size": size, "timestamps": {}, "durations": {}, "status": "unknown"}
 
         start = time.time()
-        # generate
         t0 = time.time()
         ok = self.generate_dataset(size)
         result["timestamps"]["generate_start"] = t0
@@ -209,7 +195,6 @@ class DatasetManager:
             result["status"] = "generate_failed"
             return result
 
-        # copy
         t1 = time.time()
         ok = self.copy_to_containers(size)
         result["timestamps"]["copy_start"] = t1
@@ -218,7 +203,6 @@ class DatasetManager:
             result["status"] = "copy_failed"
             return result
 
-        # load
         t2 = time.time()
         ok = self.load_to_databases(size)
         result["timestamps"]["load_start"] = t2
@@ -227,7 +211,6 @@ class DatasetManager:
             result["status"] = "load_failed"
             return result
 
-        # benchmarks
         t3 = time.time()
         ok = self.run_benchmarks(size)
         result["timestamps"]["benchmark_start"] = t3
@@ -240,11 +223,9 @@ class DatasetManager:
         result["total_time"] = time.time() - start
         return result
 
-
-# ----------------- CLI / main -----------------
 def main():
     if len(sys.argv) < 2:
-        print("Использование: python dataset_manager.py [small|medium|large|all] [--dry-run]")
+        print("Использование: python dataset_manager.py [small / medium / large / x-large / xx-large] [--dry-run]")
         return
 
     target = sys.argv[1]
@@ -252,18 +233,16 @@ def main():
 
     manager = DatasetManager(dry_run=dry)
 
-    # Инициализация схем
     if not manager.initialize_databases():
         log.error("Инициализация схем не удалась. Выход.")
         return
 
-    sizes = ["small", "medium", "large"] if target == "all" else [target]
+    sizes = ["small", "medium", "large", "x-large", "xx-large"] if target == "all" else [target]
 
     for size in sizes:
         log.info("=" * 60)
         log.info("🎯 ОБРАБОТКА ДАТАСЕТА: %s", size.upper())
         res = manager.process_size(size)
-        # Сохраняем результат
         out_file = manager.results_path / f"{size}.json"
         with open(out_file, "w", encoding="utf-8") as f:
             json.dump(res, f, ensure_ascii=False, indent=2)

@@ -76,11 +76,11 @@ def cleanup_neo4j():
             print("   • Удаляем узлы порциями...")
 
             delete_query = """
-            CALL {
+            CALL () {
                 MATCH (n)
                 WITH n
                 DETACH DELETE n
-            } IN TRANSACTIONS OF 50000 ROWS
+            } IN TRANSACTIONS OF 50000 ROWS;
             """
 
             session.run(delete_query)

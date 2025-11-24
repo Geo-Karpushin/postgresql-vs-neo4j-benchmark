@@ -10,17 +10,20 @@ from tqdm import tqdm
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-BATCH_SIZE = 7000
+def count_lines(file_path):
+    """Быстрый подсчет строк в файле"""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return sum(1 for _ in f)
 
 def load_postgres(size):
     files = [
         ("users", f"generated/{size}/users.csv",
          ["user_id", "name", "age", "city", "registration_date"],
-         "Users"),
+         "👤 Пользователи"),
 
         ("friendships", f"generated/{size}/friendships.csv",
          ["user_id", "friend_id", "since", "strength"],
-         "Edges")
+         "🔗 Связи")
     ]
 
     print(f"📥 PostgreSQL: загрузка датасета {size}...")
@@ -33,8 +36,8 @@ def load_postgres(size):
         cursor = conn.cursor()
 
         for table, path, columns, desc in files:
-            print(f"➡️ {desc}: загрузка...")
-
+            print(f"{desc}: загрузка...")
+            
             with open(path, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 next(reader, None)
@@ -53,15 +56,6 @@ def load_postgres(size):
                             return b""
 
                 wrapped = Stream()
-
-                for _ in tqdm(reader, desc=desc, dynamic_ncols=True,
-                              file=sys.stdout, mininterval=0.2, smoothing=0.1):
-                    pass
-
-                f.seek(0)
-                next(reader := csv.reader(f), None)
-                stream = row_stream()
-
                 cursor.copy_expert(
                     f"COPY {table} ({','.join(columns)}) FROM STDIN WITH CSV",
                     wrapped
@@ -70,68 +64,82 @@ def load_postgres(size):
         conn.commit()
         cursor.close()
         conn.close()
-        print("✅ Готово")
-
+        print("✅ PostgreSQL: загрузка завершена")
         return True
 
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        print(f"❌ ERROR PostgreSQL: {e}")
         return False
 
 def load_neo4j(size):
+    files = [
+        ("users", f"file:///generated/{size}/users.csv", "👤 Пользователи"),
+        ("friendships", f"file:///generated/{size}/friendships.csv", "🔗 Связи")
+    ]
+
     print(f"📥 Neo4j: загрузка датасета {size}...")
 
     try:
         driver = GraphDatabase.driver("bolt://localhost:7687",
                                       auth=("neo4j", "password"))
 
-        users_csv = f"file:///generated/{size}/users.csv"
-        friends_csv = f"file:///generated/{size}/friendships.csv"
-
-        with driver.session() as session:            
-            print("👤 Загрузка пользователей...")
-            user_query = f"""
-                LOAD CSV WITH HEADERS FROM '{users_csv}' AS row
-                CREATE (u:User {{
-                    user_id: toInteger(row.user_id),
-                    name: row.name,
-                    age: toInteger(row.age),
-                    city: row.city,
-                    registration_date: date(row.registration_date)
-                }})
-            """
-            session.run(user_query)
-
-            print("🔗 Загрузка связей...")
-            edge_query = f"""
-                LOAD CSV WITH HEADERS FROM '{friends_csv}' AS row
-                MATCH (u:User {{user_id: toInteger(row.user_id)}})
-                MATCH (v:User {{user_id: toInteger(row.friend_id)}})
-                CREATE (u)-[:FRIENDS_WITH {{
-                    since: date(row.since),
-                    strength: row.strength
-                }}]->(v)
-            """
-            session.run(edge_query)
+        with driver.session() as session:
+            print("📊 Создание индексов...")
+            session.run("CREATE INDEX user_id_index IF NOT EXISTS FOR (u:User) ON (u.user_id)")
+            
+            for table, path, desc in files:
+                print(f"{desc}: загрузка...")
+                
+                if table == "users":
+                    query = f"""
+                        LOAD CSV WITH HEADERS FROM '{path}' AS row
+                        CALL (row) {{
+                            CREATE (u:User {{
+                                user_id: toInteger(row.user_id),
+                                name: row.name,
+                                age: toInteger(row.age),
+                                city: row.city,
+                                registration_date: date(row.registration_date)
+                            }})
+                        }} IN TRANSACTIONS OF 10000 ROWS
+                    """
+                else:  # friendships
+                    query = f"""
+                        LOAD CSV WITH HEADERS FROM '{path}' AS row
+                        CALL (row) {{
+                            MATCH (u:User {{user_id: toInteger(row.user_id)}})
+                            MATCH (v:User {{user_id: toInteger(row.friend_id)}})
+                            CREATE (u)-[:FRIENDS_WITH {{
+                                since: date(row.since),
+                                strength: row.strength
+                            }}]->(v)
+                        }} IN TRANSACTIONS OF 10000 ROWS
+                    """
+                
+                session.run(query)
 
         driver.close()
         print("✅ Neo4j: загрузка завершена")
         return True
 
     except Exception as e:
-        print(f"❌ ERROR loading Neo4j: {e}")
+        print(f"❌ ERROR Neo4j: {e}")
         return False
 
 def main():
     if len(sys.argv) < 2:
-        print("Использование: python load_data.py [small|medium|large]")
+        print("Использование: python load_data.py [size]")
         exit(1)
+    
     size = sys.argv[1]
     t0 = time.time()
-    ok_neo = load_neo4j(size)
+    
     ok_pg = load_postgres(size)
+    ok_neo = load_neo4j(size)
+    
     total = time.time() - t0
-    print(f"Время загрузки: {total:.2f}s")
+    print(f"⏱️ Общее время загрузки: {total:.2f}s")
+    
     exit(0 if ok_pg and ok_neo else 1)
 
 if __name__ == "__main__":

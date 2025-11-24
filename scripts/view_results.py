@@ -76,8 +76,6 @@ def aggregate_files(files):
             else:
                 mn = mx = avg = std = None
             
-            # ⚡ ИСПРАВЛЕНИЕ: берем ПЕРВЫЙ results_count, а не среднее
-            # В бенчмарке results_count устанавливается только на первой итерации
             rc_final = rc_list[0] if rc_list else 0
 
             agg[engine][qname] = {
@@ -87,7 +85,7 @@ def aggregate_files(files):
                 "max_time": mx,
                 "avg_time": avg,
                 "std_time": std,
-                "results_count": rc_final  # ⬅️ ИСПРАВЛЕНО
+                "results_count": rc_final
             }
 
     return agg

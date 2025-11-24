@@ -137,15 +137,17 @@ def main():
     ensure_writable("generated")
 
     datasets = {
-        "small":  {"users": 10000,  "avg_friends": 25},
-        "medium": {"users": 50000,  "avg_friends": 20},
-        "large":  {"users": 100000, "avg_friends": 15}
+        "small":      {"users": 50_000,    "avg_friends": 20},
+        "medium":     {"users": 500_000,   "avg_friends": 15},
+        "large":      {"users": 2_000_000, "avg_friends": 12},
+        "x-large":    {"users": 5_000_000, "avg_friends": 10},
+        "xx-large":   {"users": 10_000_000, "avg_friends": 8}
     }
 
     dataset_name = sys.argv[1] if len(sys.argv) > 1 else "small"
 
     if dataset_name not in datasets:
-        print("Допустимые датасеты: small / medium / large")
+        print("Допустимые датасеты: small / medium / large / x-large / xx-large")
         return
 
     cfg = datasets[dataset_name]

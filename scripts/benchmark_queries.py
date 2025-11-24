@@ -11,7 +11,7 @@ POSTGRES_QUERIES = {
                 SELECT user_id AS fid FROM friendships WHERE friend_id = %s
             ) AS all_friends
         """,
-        "description": "Простой запрос: друзья пользователя (симметрично, DISTINCT)"
+        "description": "Простой запрос: друзья пользователя"
     },
     "friends_of_friends": {
         "query": """
@@ -33,7 +33,7 @@ POSTGRES_QUERIES = {
             FROM fof
             WHERE fof_id <> %s
         """,
-        "description": "Друзья друзей (глубина 2, симметрично, DISTINCT)"
+        "description": "Друзья друзей (depth == 2)"
     },
     "mutual_friends": {
         "query": """
@@ -50,7 +50,7 @@ POSTGRES_QUERIES = {
             ) AS f2
             ON f1.fid = f2.fid
         """,
-        "description": "Общие друзья двух пользователей (симметрично, DISTINCT)"
+        "description": "Общие друзья двух пользователей"
     },
     "friend_recommendations": {
         "query": """
@@ -76,33 +76,34 @@ POSTGRES_QUERIES = {
             ORDER BY common_friends DESC
             LIMIT 10
         """,
-        "description": "Рекомендации друзей (симметрично, как Neo4j)"
+        "description": "Рекомендации друзей"
     },
     "shortest_path": {
         "query": """
-            WITH RECURSIVE search AS (
-            SELECT 
-                ARRAY[$1] AS path,
-                $1        AS current,
-                0         AS depth
-            UNION ALL
-            SELECT 
-                path || f.friend_id,
-                f.friend_id,
-                depth + 1
-            FROM search s
-            JOIN friendships f ON f.user_id = s.current
-            WHERE 
-                depth < 4
-                AND f.friend_id <> ALL(path)
-        )
-        SELECT path, depth
-        FROM search
-        WHERE current = $2 AND depth > 0
-        ORDER BY depth
-        LIMIT 1;
+            WITH RECURSIVE 
+            forward(level, node) AS (
+                SELECT 0, %s::bigint
+                UNION ALL
+                SELECT level + 1, f.friend_id
+                FROM forward fw
+                JOIN friendships f ON f.user_id = fw.node
+                WHERE level < 2
+            ),
+            backward(level, node) AS (
+                SELECT 0, %s::bigint
+                UNION ALL
+                SELECT level + 1, f.user_id
+                FROM backward bw
+                JOIN friendships f ON f.friend_id = bw.node
+                WHERE level < 2
+            )
+            SELECT fw.node, bw.node, fw.level + bw.level AS depth
+            FROM forward fw
+            JOIN backward bw ON fw.node = bw.node
+            ORDER BY depth
+            LIMIT 1;
         """,
-        "description": "Кратчайший путь между двумя пользователями (симметрично, depth<=4)"
+        "description": "Кратчайший путь между двумя пользователями (depth<=4)"
     }
 }
 
@@ -113,7 +114,7 @@ NEO4J_QUERIES = {
             MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(friend)
             RETURN DISTINCT friend.user_id
         """,
-        "description": "Простой запрос: друзья пользователя (симметрично)"
+        "description": "Простой запрос: друзья пользователя"
     },
     "friends_of_friends": {
         "query": """
@@ -121,14 +122,14 @@ NEO4J_QUERIES = {
             WHERE fof.user_id <> $user_id
             RETURN DISTINCT fof.user_id
         """,
-        "description": "Друзья друзей (глубина 2, симметрично)"
+        "description": "Друзья друзей (depth == 2)"
     },
     "mutual_friends": {
         "query": """
             MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]-(mutual)-[:FRIENDS_WITH]-(b:User {user_id: $userB})
             RETURN DISTINCT mutual.user_id
         """,
-        "description": "Общие друзья двух пользователей (симметрично)"
+        "description": "Общие друзья двух пользователей"
     },
     "friend_recommendations": {
         "query": """
@@ -138,24 +139,22 @@ NEO4J_QUERIES = {
             ORDER BY common_friends DESC
             LIMIT 10
         """,
-        "description": "Рекомендации друзей (симметрично)"
+        "description": "Рекомендации друзей"
     },
     "shortest_path": {
         "query": """
-            MATCH (start:User {id: $from}), (end:User {id: $to})
-            CALL {
-                WITH start, end
-                MATCH path = shortestPath(
-                    (start)-[:FRIENDS_WITH*..4]-(end)
-                )
+            MATCH (start:User {user_id: $userA})
+            MATCH (end:User {user_id: $userB})
+            CALL (start, end) {
+                MATCH path = shortestPath((start)-[:FRIENDS_WITH*..4]-(end))
                 RETURN path
             }
-            RETURN [n IN nodes(path) | n.id] AS path,
+            RETURN [n IN nodes(path) | n.user_id] AS path,
                 length(path) AS depth
             ORDER BY depth
             LIMIT 1;
         """,
-        "description": "Кратчайший путь между двумя пользователями (симметрично, depth<=4)"
+        "description": "Кратчайший путь между двумя пользователями (depth<=4)"
     }
 }
 
