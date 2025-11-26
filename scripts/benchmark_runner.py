@@ -24,15 +24,15 @@ logging.basicConfig(
 log = logging.getLogger("bench")
 
 class BenchmarkRunner:
-    def __init__(self, iterations=5, dataset="unknown"):
-        self.iterations = iterations
+    def __init__(self, dataset="unknown", query_runs_config=None):
         self.dataset = dataset
+        self.query_runs_config = query_runs_config or {}
         self.results = {
             "postgres": {},
             "neo4j": {},
             "metadata": {
                 "dataset": dataset,
-                "iterations": iterations,
+                "query_runs_config": query_runs_config,
                 "timestamp": time.time()
             }
         }
@@ -128,17 +128,19 @@ class BenchmarkRunner:
             return False
 
         for qn, qi in POSTGRES_QUERIES.items():
+            # Получаем количество запусков из конфига или используем значение по умолчанию
+            iterations = self.query_runs_config.get(qn, 5)
             desc = qi.get("description", "")
             sql = qi["query"]
             params = self._build_pg_params(qn, userA, userB)
 
-            tqdm_desc = f"PG {qn}"
-            pbar = tqdm(total=self.iterations, desc=tqdm_desc, ncols=100)
+            tqdm_desc = f"PG {qn} ({iterations} runs)"
+            pbar = tqdm(total=iterations, desc=tqdm_desc, ncols=100)
 
             times = []
             results_count = 0
 
-            for i in range(self.iterations):
+            for i in range(iterations):
                 t0 = time.perf_counter()
 
                 with conn.cursor() as cur:
@@ -168,7 +170,7 @@ class BenchmarkRunner:
                 pbar.update(1)
 
             pbar.close()
-            self.results["postgres"][qn] = self._pack_result(desc, times, results_count)
+            self.results["postgres"][qn] = self._pack_result(desc, times, results_count, iterations)
 
         try: 
             conn.close()
@@ -196,17 +198,19 @@ class BenchmarkRunner:
             return False
 
         for qn, qi in NEO4J_QUERIES.items():
+            # Получаем количество запусков из конфига или используем значение по умолчанию
+            iterations = self.query_runs_config.get(qn, 5)
             desc = qi.get("description", "")
             query = qi["query"]
             params = self._build_neo_params(qn, userA, userB)
 
-            tqdm_desc = f"Neo4j {qn}"
-            pbar = tqdm(total=self.iterations, desc=tqdm_desc, ncols=100)
+            tqdm_desc = f"Neo4j {qn} ({iterations} runs)"
+            pbar = tqdm(total=iterations, desc=tqdm_desc, ncols=100)
 
             times = []
             results_count = 0
 
-            for i in range(self.iterations):
+            for i in range(iterations):
                 try:
                     with driver.session() as session:
                         t0 = time.perf_counter()
@@ -224,7 +228,7 @@ class BenchmarkRunner:
                 pbar.update(1)
 
             pbar.close()
-            self.results["neo4j"][qn] = self._pack_result(desc, times, results_count)
+            self.results["neo4j"][qn] = self._pack_result(desc, times, results_count, iterations)
 
         try: driver.close()
         except: pass
@@ -243,10 +247,11 @@ class BenchmarkRunner:
             return {"userA": A, "userB": B}
         return {}
 
-    def _pack_result(self, desc, times, count):
+    def _pack_result(self, desc, times, count, iterations):
         if not times:
             return {
                 "description": desc,
+                "iterations": iterations,
                 "times": [],
                 "min_time": None,
                 "max_time": None,
@@ -256,6 +261,7 @@ class BenchmarkRunner:
             }
         return {
             "description": desc,
+            "iterations": iterations,
             "times": times,
             "min_time": min(times),
             "max_time": max(times),
@@ -278,15 +284,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset", nargs="?", default="unknown")
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--iterations", type=int, default=5)
+    parser.add_argument("--config", type=str, help="Path to query runs config JSON file")
     args = parser.parse_args()
 
     log.info("🎯 Benchmark: PG vs Neo4j")
     log.info("Датасет: %s", args.dataset)
 
+    # Загружаем конфигурацию query_runs
+    query_runs_config = {}
+    if args.config and Path(args.config).exists():
+        with open(args.config, 'r', encoding='utf-8') as f:
+            query_runs_config = json.load(f)
+        log.info("📋 Загружена конфигурация query_runs: %s", query_runs_config)
+
     runner = BenchmarkRunner(
-        iterations=args.iterations,
-        dataset=args.dataset
+        dataset=args.dataset,
+        query_runs_config=query_runs_config
     )
 
     conn = runner.connect_postgres()

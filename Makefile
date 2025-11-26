@@ -21,28 +21,22 @@ help:
 	@echo ""
 	@echo "Используйте: make <команда>"
 
-cleanup-db:
-	@echo "🧹 Очистка баз данных..."
-	. venv/bin/activate && python scripts/cleanup_databases.py
-	sudo sh -c "echo 3 > /proc/sys/vm/drop_caches"
+# cleanup-db:
+# 	@echo "🧹 Очистка баз данных..."
+# 	. venv/bin/activate && python scripts/cleanup_databases.py
+# 	sudo sh -c "echo 3 > /proc/sys/vm/drop_caches"
 
 test-small:
 	@echo "🔬 Тестирование на SMALL датасете..."
-	make cleanup-db
 	. venv/bin/activate && python scripts/dataset_manager.py small
-	make cleanup-db
 
 test-medium:
 	@echo "🔬 Тестирование на MEDIUM датасете..."
-	make cleanup-db
 	. venv/bin/activate && python scripts/dataset_manager.py medium
-	make cleanup-db
 
 test-large:
 	@echo "🔬 Тестирование на LARGE датасете..."
-	make cleanup-db
 	. venv/bin/activate && python scripts/dataset_manager.py large
-	make cleanup-db
 
 clear-results:
 	@echo "🧹 Очистка результатов..."
