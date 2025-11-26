@@ -7,6 +7,7 @@
 
 import psycopg2
 from neo4j import GraphDatabase
+import subprocess
 
 def cleanup_postgres():
     print("🧹 Очистка PostgreSQL")
@@ -107,6 +108,9 @@ def cleanup_neo4j():
                 session.run(f"DROP INDEX {name}")
 
         driver.close()
+
+        drop_system_caches()
+
         print("✅ Neo4j полностью очищен")
         return True
 
@@ -116,6 +120,30 @@ def cleanup_neo4j():
 
     except Exception as e:
         print(f"❌ Ошибка Neo4j очистки: {e}")
+        return False
+
+def drop_system_caches():
+    """Очистка системных кэшей для чистоты тестирования"""
+    print("🧹 Очистка системных кэшей...")
+    try:
+        # Проверяем права суперпользователя
+        if os.geteuid() != 0:
+            print("⚠️  Требуются права sudo для очистки кэшей")
+            return False
+            
+        result = subprocess.run(
+            ["sudo", "sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print("✅ Системные кэши очищены")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Ошибка очистки кэшей: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Неожиданная ошибка: {e}")
         return False
 
 def main():

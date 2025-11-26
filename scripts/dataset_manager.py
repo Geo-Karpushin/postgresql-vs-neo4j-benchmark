@@ -262,6 +262,11 @@ class DatasetManager:
         if not ok:
             result["status"] = "cleanup_failed"
             return result
+        
+        ok = self.initialize_databases()
+        if not ok:
+            log.error("Инициализация схем не удалась. Выход.")
+            return result
 
         start = time.time()
         t0 = time.time()
@@ -314,10 +319,6 @@ def main():
     dry = "--dry-run" in sys.argv
 
     manager = DatasetManager(dry_run=dry)
-
-    if not manager.initialize_databases():
-        log.error("Инициализация схем не удалась. Выход.")
-        return
 
     sizes = ["small", "medium", "large", "x-large", "xx-large"] if target == "all" else [target]
 

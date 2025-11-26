@@ -30,6 +30,10 @@ test-small:
 	@echo "🔬 Тестирование на SMALL датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py small
 
+test-small:
+	@echo "🔬 Тестирование на SMALL датасете..."
+	. venv/bin/activate && python scripts/dataset_manager.py small
+
 test-medium:
 	@echo "🔬 Тестирование на MEDIUM датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py medium
@@ -37,6 +41,10 @@ test-medium:
 test-large:
 	@echo "🔬 Тестирование на LARGE датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py large
+
+test-large:
+	@echo "🔬 Тестирование на всех датасетах..."
+	. venv/bin/activate && python scripts/dataset_manager.py all
 
 clear-results:
 	@echo "🧹 Очистка результатов..."

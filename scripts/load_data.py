@@ -1,146 +1,177 @@
 #!/usr/bin/env python3
-import io
 import sys
-import csv
 import time
 import psycopg2
 from neo4j import GraphDatabase
-from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-def count_lines(file_path):
-    """Быстрый подсчет строк в файле"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return sum(1 for _ in f)
-
-def load_postgres(size):
-    files = [
-        ("users", f"generated/{size}/users.csv",
-         ["user_id", "name", "age", "city", "registration_date"],
-         "👤 Пользователи"),
-
-        ("friendships", f"generated/{size}/friendships.csv",
-         ["user_id", "friend_id", "since", "strength"],
-         "🔗 Связи")
-    ]
-
-    print(f"📥 PostgreSQL: загрузка датасета {size}...")
-
+def load_postgres_fast(size):
+    print(f"📥 PostgreSQL: загрузка {size}...")
+    
     try:
         conn = psycopg2.connect(
             host="localhost", port=5432,
             database="benchmark", user="postgres", password="password"
         )
         cursor = conn.cursor()
+        
+        cursor.execute("SET session_replication_role = 'replica';")
+        
+        print("👤 Загрузка пользователей...")
+        with open(f"generated/{size}/users.csv", "r", encoding="utf-8") as f:
+            cursor.copy_expert(
+                "COPY users (user_id, name, age, city, registration_date) FROM STDIN WITH CSV HEADER",
+                f
+            )
+        
+        print("🔗 Загрузка связей...")
+        with open(f"generated/{size}/friendships.csv", "r", encoding="utf-8") as f:
+            cursor.copy_expert(
+                "COPY friendships (user_id, friend_id, since, strength) FROM STDIN WITH CSV HEADER",
+                f
+            )
 
-        for table, path, columns, desc in files:
-            print(f"{desc}: загрузка...")
-            
-            with open(path, "r", encoding="utf-8") as f:
-                reader = csv.reader(f)
-                next(reader, None)
-
-                def row_stream():
-                    for row in reader:
-                        yield ",".join(row) + "\n"
-
-                stream = row_stream()
-
-                class Stream:
-                    def read(self, _=None):
-                        try:
-                            return next(stream).encode("utf-8")
-                        except StopIteration:
-                            return b""
-
-                wrapped = Stream()
-                cursor.copy_expert(
-                    f"COPY {table} ({','.join(columns)}) FROM STDIN WITH CSV",
-                    wrapped
-                )
-
+        cursor.execute("SET session_replication_role = 'origin';")
         conn.commit()
         cursor.close()
         conn.close()
-        print("✅ PostgreSQL: загрузка завершена")
+        
+        print("✅ PostgreSQL: завершено")
         return True
 
     except Exception as e:
-        print(f"❌ ERROR PostgreSQL: {e}")
+        print(f"❌ PostgreSQL ошибка: {e}")
         return False
 
-def load_neo4j(size):
-    files = [
-        ("users", f"file:///generated/{size}/users.csv", "👤 Пользователи"),
-        ("friendships", f"file:///generated/{size}/friendships.csv", "🔗 Связи")
-    ]
-
-    print(f"📥 Neo4j: загрузка датасета {size}...")
+def load_neo4j_fast(size):
+    print(f"📥 Neo4j: загрузка {size}...")
 
     try:
         driver = GraphDatabase.driver("bolt://localhost:7687",
-                                      auth=("neo4j", "password"))
+                                    auth=("neo4j", "password"))
 
         with driver.session() as session:
-            print("📊 Создание индексов...")
-            session.run("CREATE INDEX user_id_index IF NOT EXISTS FOR (u:User) ON (u.user_id)")
+            print("👤 Загрузка пользователей...")
+            user_query = f"""
+            LOAD CSV WITH HEADERS FROM 'file:///generated/{size}/users.csv' AS row
+            CALL (row) {{
+                CREATE (u:User {{
+                    user_id: toInteger(row.user_id),
+                    name: row.name,
+                    age: toInteger(row.age),
+                    city: row.city,
+                    registration_date: date(row.registration_date)
+                }})
+            }} IN TRANSACTIONS OF 25000 ROWS
+            """
+            session.run(user_query)
             
-            for table, path, desc in files:
-                print(f"{desc}: загрузка...")
-                
-                if table == "users":
-                    query = f"""
-                        LOAD CSV WITH HEADERS FROM '{path}' AS row
-                        CALL (row) {{
-                            CREATE (u:User {{
-                                user_id: toInteger(row.user_id),
-                                name: row.name,
-                                age: toInteger(row.age),
-                                city: row.city,
-                                registration_date: date(row.registration_date)
-                            }})
-                        }} IN TRANSACTIONS OF 10000 ROWS
-                    """
-                else:  # friendships
-                    query = f"""
-                        LOAD CSV WITH HEADERS FROM '{path}' AS row
-                        CALL (row) {{
-                            MATCH (u:User {{user_id: toInteger(row.user_id)}})
-                            MATCH (v:User {{user_id: toInteger(row.friend_id)}})
-                            CREATE (u)-[:FRIENDS_WITH {{
-                                since: date(row.since),
-                                strength: row.strength
-                            }}]->(v)
-                        }} IN TRANSACTIONS OF 10000 ROWS
-                    """
-                
-                session.run(query)
+            print("🔗 Загрузка связей...")
+            batch_size = 5000
+            
+            friends_query = f"""
+            LOAD CSV WITH HEADERS FROM 'file:///generated/{size}/friendships.csv' AS row
+            CALL (row) {{
+                MATCH (u:User {{user_id: toInteger(row.user_id)}})
+                MATCH (v:User {{user_id: toInteger(row.friend_id)}})
+                CREATE (u)-[:FRIENDS_WITH {{
+                    since: date(row.since),
+                    strength: row.strength
+                }}]->(v)
+            }} IN TRANSACTIONS OF {batch_size} ROWS
+            """
+            
+            start_time = time.time()
+            session.run(friends_query)
+            load_time = time.time() - start_time
+            
+            print(f"✅ Связи загружены за {load_time:.1f}с")
 
         driver.close()
-        print("✅ Neo4j: загрузка завершена")
+        print("✅ Neo4j: завершено")
         return True
 
     except Exception as e:
-        print(f"❌ ERROR Neo4j: {e}")
+        print(f"❌ Neo4j ошибка: {e}")
+        return False
+
+def load_parallel(size):
+    print(f"🚀 Параллельная загрузка {size}")
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_pg = executor.submit(load_postgres_fast, size)
+        future_neo = executor.submit(load_neo4j_fast, size)
+        
+        results = [future_pg.result(), future_neo.result()]
+    
+    return all(results)
+
+def enable_constraints():
+    print("🔒 Включение ограничений PostgreSQL...")
+    
+    try:
+        conn = psycopg2.connect(
+            host="localhost", port=5432, database="benchmark",
+            user="postgres", password="password"
+        )
+        conn.autocommit = True
+        cursor = conn.cursor()
+        
+        cursor.execute("ALTER TABLE users SET LOGGED")
+        cursor.execute("ALTER TABLE friendships SET LOGGED")
+        
+        cursor.execute("""
+            ALTER TABLE friendships 
+            ADD CONSTRAINT fk_friendships_user 
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        """)
+        cursor.execute("""
+            ALTER TABLE friendships 
+            ADD CONSTRAINT fk_friendships_friend 
+            FOREIGN KEY (friend_id) REFERENCES users(user_id)
+        """)
+        
+        cursor.execute("CREATE INDEX CONCURRENTLY idx_friendships_user_friend ON friendships(user_id, friend_id)")
+        cursor.execute("CREATE INDEX CONCURRENTLY idx_friendships_friend_user ON friendships(friend_id, user_id)")
+        cursor.execute("CREATE INDEX CONCURRENTLY idx_users_city ON users(city)")
+
+        cursor.execute("ANALYZE users")
+        cursor.execute("ANALYZE friendships")
+        
+        cursor.close()
+        conn.close()
+        
+        print("✅ Ограничения включены")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Ошибка включения ограничений: {e}")
         return False
 
 def main():
     if len(sys.argv) < 2:
-        print("Использование: python load_data.py [size]")
+        print("Использование: python load_fast.py [size]")
         exit(1)
     
     size = sys.argv[1]
+    
+    print(f"⚡ Загрузка данных {size.upper()}")
+    print("=" * 40)
     t0 = time.time()
     
-    ok_pg = load_postgres(size)
-    ok_neo = load_neo4j(size)
+    success = load_parallel(size)
+    
+    if success:
+        enable_constraints()
     
     total = time.time() - t0
-    print(f"⏱️ Общее время загрузки: {total:.2f}s")
+    print("=" * 40)
+    print(f"⏱️ Общее время: {total:.1f}с")
     
-    exit(0 if ok_pg and ok_neo else 1)
+    exit(0 if success else 1)
 
 if __name__ == "__main__":
     main()
