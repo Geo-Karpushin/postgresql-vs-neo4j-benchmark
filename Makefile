@@ -1,4 +1,4 @@
-.PHONY: help cleanup-db test-small test-medium test-large test-all clear-results docker-up docker-down view test-all-n
+.PHONY: help cleanup-db test-small test-medium test-large test-all clear-results docker-up docker-down view test-all-n charts
 
 help:
 	@echo "Доступные команды:"
@@ -21,15 +21,6 @@ help:
 	@echo ""
 	@echo "Используйте: make <команда>"
 
-# cleanup-db:
-# 	@echo "🧹 Очистка баз данных..."
-# 	. venv/bin/activate && python scripts/cleanup_databases.py
-# 	sudo sh -c "echo 3 > /proc/sys/vm/drop_caches"
-
-test-small:
-	@echo "🔬 Тестирование на SMALL датасете..."
-	. venv/bin/activate && python scripts/dataset_manager.py small
-
 test-small:
 	@echo "🔬 Тестирование на SMALL датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py small
@@ -42,7 +33,15 @@ test-large:
 	@echo "🔬 Тестирование на LARGE датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py large
 
-test-large:
+test-x-large:
+	@echo "🔬 Тестирование на X-LARGE датасете..."
+	. venv/bin/activate && python scripts/dataset_manager.py x-large
+
+test-xx-large:
+	@echo "🔬 Тестирование на XX-LARGE датасете..."
+	. venv/bin/activate && python scripts/dataset_manager.py xx-large
+
+test-all:
 	@echo "🔬 Тестирование на всех датасетах..."
 	. venv/bin/activate && python scripts/dataset_manager.py all
 
@@ -60,3 +59,7 @@ docker-down:
 
 view:
 	. venv/bin/activate && python scripts/view_results.py $(n)
+
+charts:
+	@echo "📊 Создание графиков..."
+	. venv/bin/activate && python scripts/make_bench_charts.py

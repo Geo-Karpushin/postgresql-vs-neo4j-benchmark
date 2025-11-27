@@ -107,54 +107,68 @@ POSTGRES_QUERIES = {
     }
 }
 
-
 NEO4J_QUERIES = {
     "simple_friends": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(friend)
-            RETURN DISTINCT friend.user_id
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f:User)
+            RETURN DISTINCT f.user_id AS friend
         """,
         "description": "Простой запрос: друзья пользователя"
     },
+
     "friends_of_friends": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-()-[:FRIENDS_WITH]-(fof)
-            WHERE fof.user_id <> $user_id
-            RETURN DISTINCT fof.user_id
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f1:User)
+            WITH u, COLLECT(f1) as direct_friends
+            UNWIND direct_friends as friend
+            MATCH (friend)-[:FRIENDS_WITH]-(f2:User)
+            WHERE f2 <> u AND NOT f2 IN direct_friends
+            RETURN DISTINCT f2.user_id AS fof
         """,
-        "description": "Друзья друзей (depth == 2)"
+        "description": "Друзья друзей — depth=2 (оптимизированный)"
     },
+
     "mutual_friends": {
         "query": """
-            MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]-(mutual)-[:FRIENDS_WITH]-(b:User {user_id: $userB})
-            RETURN DISTINCT mutual.user_id
+            MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]->(f:User)
+            MATCH (b:User {user_id: $userB})-[:FRIENDS_WITH]->(f)
+            RETURN DISTINCT f.user_id AS mutual
         """,
         "description": "Общие друзья двух пользователей"
     },
+
     "friend_recommendations": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-()-[:FRIENDS_WITH]-(rec)
-            WHERE rec.user_id <> $user_id AND NOT (u)-[:FRIENDS_WITH]-(rec)
-            RETURN rec.user_id AS user_id, COUNT(*) AS common_friends
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-()-[:FRIENDS_WITH]-(rec:User)
+            WHERE rec.user_id <> $user_id
+              AND NOT (u)-[:FRIENDS_WITH]-(rec)
+            RETURN rec.user_id AS user_id,
+                   COUNT(*) AS common_friends
             ORDER BY common_friends DESC
             LIMIT 10
         """,
         "description": "Рекомендации друзей"
     },
+
     "shortest_path": {
         "query": """
             MATCH (start:User {user_id: $userA})
             MATCH (end:User {user_id: $userB})
-            CALL (start, end) {
-                MATCH path = shortestPath((start)-[:FRIENDS_WITH*..4]-(end))
-                RETURN path
-            }
+            CALL apoc.path.expandConfig(start, {
+                relationshipFilter: "FRIENDS_WITH>",
+                minLevel: 1,
+                maxLevel: 4,
+                bfs: true,
+                terminateNodes: [end],
+                uniqueness: "NODE_GLOBAL"
+            }) YIELD path
+            WHERE last(nodes(path)) = end
             RETURN [n IN nodes(path) | n.user_id] AS path,
                 length(path) AS depth
-            ORDER BY depth
-            LIMIT 1;
+            ORDER BY depth ASC
+            LIMIT 1
         """,
-        "description": "Кратчайший путь между двумя пользователями (depth<=4)"
+        "description": "Кратчайший путь через APOC expandConfig"
     }
 }
 

@@ -20,8 +20,43 @@ NEO4J_CONTAINER = "database-benchmark-neo4j-1"
 DOCKER_RETRIES = 4
 DOCKER_BACKOFF = 2
 
-# Конфигурация датасетов
 DATASETS_CONFIG = {
+    "super-tiny": {
+        "users": 5_000,
+        "avg_friends": 25,
+        "iterations": 5,
+        "query_runs": {
+            "simple_friends": 150,
+            "friends_of_friends": 300,
+            "mutual_friends": 150,
+            "friend_recommendations": 50,
+            "shortest_path": 10
+        }
+    },
+    "tiny": {
+        "users": 10_000,
+        "avg_friends": 22,
+        "iterations": 5,
+        "query_runs": {
+            "simple_friends": 120,
+            "friends_of_friends": 250,
+            "mutual_friends": 120,
+            "friend_recommendations": 40,
+            "shortest_path": 8
+        }
+    },
+    "very-small": {
+        "users": 20_000,
+        "avg_friends": 20,
+        "iterations": 5,
+        "query_runs": {
+            "simple_friends": 100,
+            "friends_of_friends": 200,
+            "mutual_friends": 100,
+            "friend_recommendations": 30,
+            "shortest_path": 6
+        }
+    },
     "small": {
         "users": 50_000,
         "avg_friends": 20,
@@ -36,50 +71,50 @@ DATASETS_CONFIG = {
     },
     "medium": {
         "users": 500_000,
-        "avg_friends": 15,
+        "avg_friends": 18,
         "iterations": 3,
         "query_runs": {
+            "simple_friends": 40,
+            "friends_of_friends": 100,
+            "mutual_friends": 40,
+            "friend_recommendations": 20,
+            "shortest_path": 5
+        }
+    },
+    "large": {
+        "users": 2_000_000,
+        "avg_friends": 15,
+        "iterations": 2,
+        "query_runs": {
             "simple_friends": 30,
-            "friends_of_friends": 300,
+            "friends_of_friends": 80,
             "mutual_friends": 30,
             "friend_recommendations": 15,
             "shortest_path": 3
         }
     },
-    "large": {
-        "users": 2_000_000,
+    "x-large": {
+        "users": 5_000_000,
         "avg_friends": 12,
-        "iterations": 2,
+        "iterations": 1,
         "query_runs": {
             "simple_friends": 20,
-            "friends_of_friends": 250,
+            "friends_of_friends": 50,
             "mutual_friends": 20,
             "friend_recommendations": 10,
             "shortest_path": 2
         }
     },
-    "x-large": {
-        "users": 5_000_000,
+    "xx-large": {
+        "users": 10_000_000,
         "avg_friends": 10,
         "iterations": 1,
         "query_runs": {
             "simple_friends": 10,
-            "friends_of_friends": 200,
+            "friends_of_friends": 30,
             "mutual_friends": 10,
             "friend_recommendations": 5,
-            "shortest_path": 1
-        }
-    },
-    "xx-large": {
-        "users": 10_000_000,
-        "avg_friends": 8,
-        "iterations": 1,
-        "query_runs": {
-            "simple_friends": 5,
-            "friends_of_friends": 100,
-            "mutual_friends": 5,
-            "friend_recommendations": 3,
-            "shortest_path": 1
+            "shortest_path": 2
         }
     }
 }
@@ -148,6 +183,18 @@ class DatasetManager:
         except subprocess.CalledProcessError as e:
             log.error("❌ Ошибка очистки: %s", e)
             return False
+    
+    def inspect_databases(self) -> bool:
+        log.info("📝 Проверка датасетов в базах данных...")
+        try:
+            subprocess.run(
+                [sys.executable, str(self.scripts_path / "inspect_databases.py")],
+                check=True
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            log.error("❌ Ошибка очистки: %s", e)
+            return False
 
     def generate_dataset(self, size: str) -> bool:
         log.info("🎯 Генерация датасета %s...", size)
@@ -176,6 +223,9 @@ class DatasetManager:
 
         cp_pg_users = ["docker", "cp", users_host, f"{POSTGRES_CONTAINER}:/tmp/users.csv"]
         cp_pg_friends = ["docker", "cp", friends_host, f"{POSTGRES_CONTAINER}:/tmp/friendships.csv"]
+        cmd_chmod_users = ["docker", "exec", POSTGRES_CONTAINER, "chmod", "644", "/tmp/users.csv"]
+        cmd_chmod_friends = ["docker", "exec", POSTGRES_CONTAINER, "chmod", "644", "/tmp/friendships.csv"]
+
 
         neo4j_dir = f"/var/lib/neo4j/import/{size}"
         mkdir_neo = ["docker", "exec", NEO4J_CONTAINER, "mkdir", "-p", neo4j_dir]
@@ -185,7 +235,9 @@ class DatasetManager:
         steps = [
             (mkdir_neo, "Создание папки Neo4j"),
             (cp_pg_users, "Копирование users -> Postgres"),
+            (cmd_chmod_users, "Выдача прав users.csv"),
             (cp_pg_friends, "Копирование friendships -> Postgres"),
+            (cmd_chmod_friends, "Выдача прав friendships.csv"),
             (cp_neo_users, "Копирование users -> Neo4j"),
             (cp_neo_friends, "Копирование friendships -> Neo4j"),
         ]
@@ -212,7 +264,11 @@ class DatasetManager:
 
         try:
             subprocess.run(
-                [sys.executable, str(loader), size],
+                [
+                    sys.executable,
+                    str(loader),
+                    size,
+                ],
                 check=True
             )
             log.info("✅ Загрузка в базы завершена успешно")
@@ -292,6 +348,11 @@ class DatasetManager:
         if not ok:
             result["status"] = "load_failed"
             return result
+        
+        ok = self.inspect_databases()
+        if not ok:
+            result["status"] = "inspection_failed"
+            return result
 
         t3 = time.time()
         ok = self.run_benchmarks(size)
@@ -320,7 +381,8 @@ def main():
 
     manager = DatasetManager(dry_run=dry)
 
-    sizes = ["small", "medium", "large", "x-large", "xx-large"] if target == "all" else [target]
+    # sizes = ["small", "medium", "large", "x-large", "xx-large"] if target == "all" else [target]
+    sizes = ["super-tiny", "tiny", "very-small"]
 
     for size in sizes:
         log.info("=" * 60)
@@ -338,9 +400,9 @@ def main():
                 json.dump(res, f, ensure_ascii=False, indent=2)
             log.info("Сохранён результат: %s", out_file)
             if res["status"] != "ok":
-                oks += 1
                 log.warning("Обработка %s завершилась с статусом: %s", size, res["status"])
             else:
+                oks += 1
                 log.info("🎉 %s датасет полностью обработан! (время %.2fs)", size, res["total_time"])
         
         log.info("ОБРАБОТКА ДАТАСЕТА ЗАВЕРШЕНА, успешно: %i/%i", oks, DATASETS_CONFIG[size]["iterations"])

@@ -1,160 +1,128 @@
 #!/usr/bin/env python3
-"""
-Полная очистка PostgreSQL и Neo4j.
-Использование:
-    python cleanup_databases.py
-"""
-
-import psycopg2
-from neo4j import GraphDatabase
 import subprocess
+import time
+import sys
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from neo4j import GraphDatabase
 
-def cleanup_postgres():
-    print("🧹 Очистка PostgreSQL")
-    try:
-        conn = psycopg2.connect(
-            host="localhost",
-            port=5432,
-            database="benchmark",
-            user="postgres",
-            password="password"
-        )
+# ------------------------- CONFIG -------------------------
 
-        conn.autocommit = True
-        cur = conn.cursor()
+POSTGRES = {
+    "host": "localhost",
+    "user": "postgres",
+    "password": "password",
+    "port": 5432,
+    "database": "benchmark"
+}
 
-        print("   • Удаляем материализованные представления...")
-        cur.execute("""
-            DO $$
-            DECLARE r RECORD;
-            BEGIN
-                FOR r IN (SELECT matviewname FROM pg_matviews)
-                LOOP
-                    EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS ' || quote_ident(r.matviewname) || ' CASCADE';
-                END LOOP;
-            END $$;
-        """)
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_AUTH = ("neo4j", "password")
 
-        print("   • Очищаем таблицы...")
-        cur.execute("""
-            DO $$
-            DECLARE r RECORD;
-            BEGIN
-                FOR r IN (
-                    SELECT tablename
-                    FROM pg_tables
-                    WHERE schemaname='public'
-                )
-                LOOP
-                    EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
-                END LOOP;
-            END $$;
-        """)
+NEO4J_CONTAINER = "database-benchmark-neo4j-1"
+NEO4J_VOLUME = "database-benchmark_neo4j_data"   # <-- docker compose volume name
 
-        print("   • Делаем VACUUM ANALYZE...")
-        cur.execute("VACUUM ANALYZE")
+# ----------------------------------------------------------
 
-        cur.close()
-        conn.close()
+def sh(cmd):
+    """Run shell command with output."""
+    print(f"$ {cmd}")
+    subprocess.run(cmd, shell=True, check=True)
 
-        print("✅ PostgreSQL очищен")
-        return True
+# --------------------- POSTGRES CLEANUP --------------------
 
-    except Exception as e:
-        print(f"❌ Ошибка PostgreSQL очистки: {e}")
-        return False
+def reset_postgres():
+    print("🧹 PostgreSQL: DROP DATABASE benchmark...")
+    conn = psycopg2.connect(
+        host=POSTGRES["host"],
+        port=POSTGRES["port"],
+        user=POSTGRES["user"],
+        password=POSTGRES["password"],
+        database="postgres"
+    )
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = conn.cursor()
 
-def cleanup_neo4j():
-    print("🧹 Очистка Neo4j...")
+    cur.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'benchmark';")
+    cur.execute("DROP DATABASE IF EXISTS benchmark;")
+    cur.execute("CREATE DATABASE benchmark;")
 
-    try:
-        driver = GraphDatabase.driver(
-            "bolt://localhost:7687",
-            auth=("neo4j", "password")
-        )
+    conn.close()
+    print("✅ PostgreSQL: создана новая пустая база")
 
-        with driver.session() as session:
-            print("   • Удаляем узлы порциями...")
+def verify_postgres():
+    print("🔍 Проверка PostgreSQL: таблиц быть не должно...")
+    conn = psycopg2.connect(**POSTGRES)
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM pg_tables WHERE schemaname='public';")
+    count = cur.fetchone()[0]
+    conn.close()
 
-            delete_query = """
-            CALL () {
-                MATCH (n)
-                WITH n
-                DETACH DELETE n
-            } IN TRANSACTIONS OF 50000 ROWS;
-            """
+    if count != 0:
+        print(f"❌ В PostgreSQL остались таблицы: {count}")
+        sys.exit(1)
 
-            session.run(delete_query)
+    print("✅ PostgreSQL пустая")
 
-            print("   • Удаляем constraints...")
+# ---------------------- NEO4J CLEANUP ----------------------
 
-            constraints = session.run("SHOW CONSTRAINTS").data()
+def reset_neo4j_container():
+    print("🛑 Остановка Neo4j контейнера...")
+    subprocess.run(f"docker stop {NEO4J_CONTAINER}", shell=True, check=False)
 
-            for c in constraints:
-                name = c["name"]
-                print(f"     - DROP CONSTRAINT {name}")
-                session.run(f"DROP CONSTRAINT {name}")
+    print("🗑️ Удаление volumes...")
+    subprocess.run(f"docker rm {NEO4J_CONTAINER}", shell=True, check=False)
+    subprocess.run(f"docker volume rm {NEO4J_VOLUME}", shell=True, check=False)
 
-            print("   • Удаляем indexes...")
+    print("▶️ Старт контейнера...")
+    sh("docker compose up -d neo4j")
 
-            indexes = session.run("SHOW INDEXES").data()
 
-            for idx in indexes:
-                name = idx["name"]
-                if idx.get("type") == "LOOKUP":
-                    continue
+def wait_for_neo4j():
+    print("⏳ Ожидание готовности Neo4j...")
+    for i in range(60):
+        try:
+            driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+            with driver.session() as s:
+                s.run("RETURN 1")
+            print("✅ Neo4j доступен")
+            driver.close()
+            return
+        except:
+            time.sleep(1)
+    print("❌ Neo4j не поднялся")
+    sys.exit(1)
 
-                print(f"     - DROP INDEX {name}")
-                session.run(f"DROP INDEX {name}")
 
-        driver.close()
+def verify_neo4j():
+    print("🔍 Проверка Neo4j: граф должен быть пустым")
 
-        drop_system_caches()
+    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    with driver.session() as s:
+        cnt = s.run("MATCH (n) RETURN count(n) AS c").single()["c"]
 
-        print("✅ Neo4j полностью очищен")
-        return True
-
-    except Exception as e:
-        print(f"❌ Ошибка Neo4j очистки: {e}")
-        return False
-
-    except Exception as e:
-        print(f"❌ Ошибка Neo4j очистки: {e}")
-        return False
-
-def drop_system_caches():
-    """Очистка системных кэшей для чистоты тестирования"""
-    print("🧹 Очистка системных кэшей...")
-    try:
-        # Проверяем права суперпользователя
-        if os.geteuid() != 0:
-            print("⚠️  Требуются права sudo для очистки кэшей")
-            return False
-            
-        result = subprocess.run(
-            ["sudo", "sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        print("✅ Системные кэши очищены")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Ошибка очистки кэшей: {e}")
-        return False
-    except Exception as e:
-        print(f"❌ Неожиданная ошибка: {e}")
-        return False
+    return cnt
 
 def main():
-    ok_pg = cleanup_postgres()
-    ok_neo = cleanup_neo4j()
+    print("=========================================")
+    print(" 🔄 ПОЛНАЯ ОЧИСТКА PostgreSQL + Neo4j")
+    print("=========================================\n")
 
-    if ok_pg and ok_neo:
-        exit(0)
+    reset_postgres()
+    verify_postgres()
+
+    # Проверяем Neo4j перед перезапуском
+    cnt = verify_neo4j()
+
+    if cnt != 0:
+        print(f"♻️ База Neo4j содержит {cnt} узлов — выполняю перезапуск контейнера…")
+        reset_neo4j_container()
+        wait_for_neo4j()
+        verify_neo4j()
     else:
-        print("\n⚠️ Очистка завершена с ошибками")
-        exit(1)
+        print("⏭️ Neo4j уже пустой — перезапуск не требуется")
+
+    print("\n🎉 ВСЁ ГОТОВО: обе базы полностью очищены")
 
 
 if __name__ == "__main__":
