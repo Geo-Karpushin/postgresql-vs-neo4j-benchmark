@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "2"
+          memory: 4G
+
+    environment:
+      POSTGRES_DB: benchmark
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+
+    ports:
+      - "5432:5432"
+
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c work_mem=32MB
+      -c maintenance_work_mem=256MB
+      -c max_parallel_workers=2
+      -c max_parallel_workers_per_gather=1
+      -c wal_buffers=32MB
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./generated:/generated
+
+  neo4j:
+    image: neo4j:5.26
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "2"
+          memory: 4G
+
+    environment:
+      NEO4J_AUTH: "neo4j/password"
+      NEO4J_PLUGINS: '["apoc"]'
+
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      NEO4J_dbms_security_procedures_allowlist: "apoc.*"
+
+      NEO4J_dbms_security_allow__csv__import__from__file__urls: "true"
+      NEO4J_server_directories_import: "/var/lib/neo4j/import"
+
+      NEO4J_server_memory_heap_initial__size: "1G"
+      NEO4J_server_memory_heap_max__size: "1.5G"
+      NEO4J_server_memory_pagecache_size: "2G"
+      NEO4J_dbms_memory_transaction_total_max: "512M"
+
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./generated:/var/lib/neo4j/import/generated
