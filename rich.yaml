@@ -6,71 +6,88 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "4"
-          memory: 8G
+          cpus: "16"
+          memory: 32G
         reservations:
-          cpus: "4"
-          memory: 8G
-
+          cpus: "16"
+          memory: 32G
     environment:
       POSTGRES_DB: benchmark
       POSTGRES_PASSWORD: password
       POSTGRES_USER: postgres
-
     ports:
       - "5432:5432"
-
     command: >
       postgres
-      -c shared_buffers=2GB
-      -c effective_cache_size=5GB
-      -c work_mem=64MB
-      -c maintenance_work_mem=512MB
-      -c max_parallel_workers=4
-      -c max_parallel_workers_per_gather=2
-      -c wal_buffers=64MB
-
+      -c shared_buffers=8GB
+      -c effective_cache_size=24GB
+      -c work_mem=512MB
+      -c maintenance_work_mem=4GB
+      -c max_parallel_workers_per_gather=8
+      -c max_worker_processes=16
+      -c max_parallel_workers=16
+      -c max_parallel_maintenance_workers=8
+      -c max_wal_size=16GB
+      -c min_wal_size=8GB
+      -c checkpoint_timeout=30min
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=256MB
+      -c default_statistics_target=500
+      -c fsync=off
+      -c synchronous_commit=off
+      -c full_page_writes=off
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./generated:/generated
+      - ./generated:/generated:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   neo4j:
     image: neo4j:5.26
-
     deploy:
       resources:
         limits:
-          cpus: "4"
-          memory: 8G
+          cpus: "16"
+          memory: 32G
         reservations:
-          cpus: "4"
-          memory: 8G
-
+          cpus: "16"
+          memory: 32G
     environment:
       NEO4J_AUTH: "neo4j/password"
       NEO4J_PLUGINS: '["apoc"]'
-
-      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
-      NEO4J_dbms_security_procedures_allowlist: "apoc.*"
-
-      NEO4J_dbms_security_allow__csv__import__from__file__urls: "true"
-      NEO4J_server_directories_import: "/var/lib/neo4j/import"
-
-      NEO4J_server_memory_heap_initial__size: "2G"
-      NEO4J_server_memory_heap_max__size: "3G"
-      NEO4J_server_memory_pagecache_size: "4G"
-      NEO4J_dbms_memory_transaction_total_max: "1G"
-
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_security_procedures_allowlist: apoc.*
+      NEO4J_dbms_security_allow__csv__import__from__file__urls: true
+      NEO4J_server_directories_import: /import
+      NEO4J_server_memory_heap_initial__size: 8G
+      NEO4J_server_memory_heap_max__size: 16G
+      NEO4J_server_memory_pagecache_size: 16G
+      NEO4J_dbms_memory_transaction_total_max: 8G
+      NEO4J_db_transaction_concurrent_maximum: 800
+      NEO4J_db_transaction_timeout: 10m
+      NEO4J_db_lock_acquisition_timeout: 10m
+      NEO4J_server_config_strict__validation_enabled: false
+      NEO4J_server_threads_worker__count: 16
+      
     ports:
       - "7474:7474"
       - "7687:7687"
-
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
-      - ./generated:/var/lib/neo4j/import/generated
+      - neo4j_import:/import
+      - ./generated:/import/generated:ro
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "password", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
   neo4j_data:
   neo4j_logs:
+  neo4j_import:

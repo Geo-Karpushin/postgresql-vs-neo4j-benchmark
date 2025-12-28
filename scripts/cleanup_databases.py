@@ -295,7 +295,7 @@ class DatabaseCleaner:
             self.cleanup_neo4j()
             
             # Шаг 4: Перезапустить контейнеры
-            self.restart_containers()
+            # self.restart_containers()
             
             print("\n🎉 ВСЁ ГОТОВО: обе базы полностью очищены")
             

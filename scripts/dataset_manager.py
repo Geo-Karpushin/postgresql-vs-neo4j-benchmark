@@ -24,6 +24,7 @@ DOCKER_RETRIES = 4
 DOCKER_BACKOFF = 2
 
 CONFIGS = [
+    "test",
     "poor",
     "medium",
     "rich"
@@ -45,61 +46,86 @@ DATASETS_CONFIG = {
     "super-tiny": {
         "users": 5_000,
         "avg_friends": 25,
-        "iterations": 1,
+        "iterations": 5,
         "query_runs": {
             "simple_friends": 150,
             "friends_of_friends": 300,
             "mutual_friends": 150,
             "friend_recommendations": 50,
-            "shortest_path": 10
+            "shortest_path": 10,
+            "cohort_analysis": 10,
+            "social_cities": 8,
+            "age_gap_analysis": 8,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "tiny": {
         "users": 10_000,
         "avg_friends": 22,
-        "iterations": 1,
+        "iterations": 5,
         "query_runs": {
             "simple_friends": 120,
             "friends_of_friends": 250,
             "mutual_friends": 120,
             "friend_recommendations": 40,
-            "shortest_path": 8
+            "shortest_path": 8,
+            "cohort_analysis": 8,
+            "social_cities": 6,
+            "age_gap_analysis": 6,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "very-small": {
         "users": 20_000,
         "avg_friends": 20,
-        "iterations": 1,
+        "iterations": 5,
         "query_runs": {
             "simple_friends": 100,
             "friends_of_friends": 200,
             "mutual_friends": 100,
             "friend_recommendations": 30,
-            "shortest_path": 6
+            "shortest_path": 6,
+            "cohort_analysis": 6,
+            "social_cities": 5,
+            "age_gap_analysis": 5,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "small": {
         "users": 50_000,
         "avg_friends": 20,
-        "iterations": 1,
+        "iterations": 5,
         "query_runs": {
             "simple_friends": 50,
             "friends_of_friends": 400,
             "mutual_friends": 50,
             "friend_recommendations": 20,
-            "shortest_path": 5
+            "shortest_path": 5,
+            "cohort_analysis": 5,
+            "social_cities": 4,
+            "age_gap_analysis": 4,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "medium": {
         "users": 500_000,
         "avg_friends": 18,
-        "iterations": 1,
+        "iterations": 3,
         "query_runs": {
             "simple_friends": 40,
             "friends_of_friends": 100,
             "mutual_friends": 40,
             "friend_recommendations": 20,
-            "shortest_path": 5
+            "shortest_path": 5,
+            "cohort_analysis": 4,
+            "social_cities": 3,
+            "age_gap_analysis": 3,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "large": {
@@ -111,7 +137,12 @@ DATASETS_CONFIG = {
             "friends_of_friends": 80,
             "mutual_friends": 30,
             "friend_recommendations": 15,
-            "shortest_path": 3
+            "shortest_path": 3,
+            "cohort_analysis": 3,
+            "social_cities": 3,
+            "age_gap_analysis": 3,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "x-large": {
@@ -123,7 +154,12 @@ DATASETS_CONFIG = {
             "friends_of_friends": 50,
             "mutual_friends": 20,
             "friend_recommendations": 10,
-            "shortest_path": 2
+            "shortest_path": 3,
+            "cohort_analysis": 3,
+            "social_cities": 3,
+            "age_gap_analysis": 3,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     },
     "xx-large": {
@@ -135,10 +171,32 @@ DATASETS_CONFIG = {
             "friends_of_friends": 30,
             "mutual_friends": 10,
             "friend_recommendations": 5,
-            "shortest_path": 2
+            "shortest_path": 3,
+            "cohort_analysis": 3,
+            "social_cities": 3,
+            "age_gap_analysis": 3,
+            "network_growth": 3,
+            "age_clustering": 3
         }
     }
 }
+
+for config_name, config in DATASETS_CONFIG.items():
+    users = config["users"]
+    avg_friends = config["avg_friends"]
+    friendships_count = int(users * avg_friends)
+    config["expected_friendships"] = friendships_count
+    
+    if users <= 50_000:
+        config["estimated_time_minutes"] = 5
+    elif users <= 500_000:
+        config["estimated_time_minutes"] = 15
+    elif users <= 2_000_000:
+        config["estimated_time_minutes"] = 30
+    elif users <= 5_000_000:
+        config["estimated_time_minutes"] = 60
+    else:
+        config["estimated_time_minutes"] = 120
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 log = logging.getLogger("dataset_manager")
@@ -264,7 +322,7 @@ class DatasetManager:
     def initialize_databases(self) -> bool:
         log.info("🗃️ Инициализация схем баз данных...")
         try:
-            run_cmd([sys.executable, str(self.scripts_path / "init_database.py")])
+            subprocess.run([sys.executable, str(self.scripts_path / "init_database.py"), "init"], check=True)
             log.info("✅ Схемы баз данных инициализированы")
             return True
         except subprocess.CalledProcessError as e:
@@ -377,6 +435,16 @@ class DatasetManager:
             log.error("❌ Ошибка загрузки данных")
             return False
 
+    def finalize_initialize_databases(self) -> bool:
+        log.info("🗃️ Инициализация схем баз данных...")
+        try:
+            subprocess.run([sys.executable, str(self.scripts_path / "init_database.py"), "finalize"], check=True)
+            log.info("✅ Схемы баз данных инициализированы")
+            return True
+        except subprocess.CalledProcessError as e:
+            log.error("❌ Ошибка инициализации: %s", e.stderr.strip())
+            return False
+
     def run_benchmarks(self, setup_config:str, size: str, iteration: int) -> Optional[Path]:
         """Запускает бенчмарки и возвращает путь к файлу с результатами"""
         log.info("🚀 Запуск бенчмарков для %s (итерация %d)...", size, iteration)
@@ -390,13 +458,13 @@ class DatasetManager:
             config = self.config.get(size, {})
             
             # Создаем временный конфиг файл для query_runs
-            config_file = self.results_path / f"benchmark_config_{size}_{iteration}.json"
+            config_file = self.results_path / f"benchmark_config_{setup_config}_{size}_{iteration}.json"
+
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(config.get("query_runs", {}), f, indent=2)
             
             # Генерируем уникальное имя файла результатов
-            timestamp = int(time.time())
-            result_filename = f"benchmark_results_{size}_{iteration}_{timestamp}.json"
+            result_filename = f"benchmark_results_{size}_{iteration}_{int(time.time())}.json"
             result_file = self.results_path / result_filename
             
             # Запускаем бенчмарк с явным указанием пути для сохранения
@@ -436,52 +504,65 @@ class DatasetManager:
         }
 
         # 1. Очистка баз данных
+        t0 = time.time()
         ok = self.cleanup_databases(config)
+        result["timestamps"]["cleanup_start"] = t0
+        result["durations"]["cleanup"] = time.time() - t0
         if not ok:
             result["status"] = "cleanup_failed"
             result["end_time"] = time.time()
             return result
         
         # 2. Инициализация схем
-        t0 = time.time()
+        t1 = time.time()
         ok = self.initialize_databases()
-        result["timestamps"]["initialize_start"] = t0
-        result["durations"]["initialize"] = time.time() - t0
+        result["timestamps"]["initialize_start"] = t1
+        result["durations"]["initialize"] = time.time() - t1
         if not ok:
             result["status"] = "initialize_failed"
             result["end_time"] = time.time()
             return result
 
         # 3. Генерация датасета
-        t1 = time.time()
+        t2 = time.time()
         ok = self.generate_dataset(size)
-        result["timestamps"]["generate_start"] = t1
-        result["durations"]["generate"] = time.time() - t1
+        result["timestamps"]["generate_start"] = t2
+        result["durations"]["generate"] = time.time() - t2
         if not ok:
             result["status"] = "generate_failed"
             result["end_time"] = time.time()
             return result
 
         # 4. Копирование в контейнеры
-        t2 = time.time()
+        t3 = time.time()
         ok = self.copy_to_containers(size)
-        result["timestamps"]["copy_start"] = t2
-        result["durations"]["copy"] = time.time() - t2
+        result["timestamps"]["copy_start"] = t3
+        result["durations"]["copy"] = time.time() - t3
         if not ok:
             result["status"] = "copy_failed"
             result["end_time"] = time.time()
             return result
 
         # 5. Загрузка в базы данных
-        t3 = time.time()
+        t4 = time.time()
         ok = self.load_to_databases(size)
-        result["timestamps"]["load_start"] = t3
-        result["durations"]["load"] = time.time() - t3
+        result["timestamps"]["load_start"] = t4
+        result["durations"]["load"] = time.time() - t4
         if not ok:
             result["status"] = "load_failed"
             result["end_time"] = time.time()
             return result
         
+        # 6. Финализация инициализации баз данных
+        t5 = time.time()
+        ok = self.finalize_initialize_databases()
+        result["timestamps"]["finalize_initialize_start"] = t5
+        result["durations"]["finalize_initialize"] = time.time() - t5
+        if not ok:
+            result["status"] = "finalize_initialize_failed"
+            result["end_time"] = time.time()
+            return result
+
         # 6. Проверка данных
         ok = self.inspect_databases()
         if not ok:
@@ -490,10 +571,10 @@ class DatasetManager:
             return result
 
         # 7. Запуск бенчмарков
-        t4 = time.time()
-        result_file = self.run_benchmarks(size, config, iteration)
-        result["timestamps"]["benchmark_start"] = t4
-        result["durations"]["benchmark"] = time.time() - t4
+        t6 = time.time()
+        result_file = self.run_benchmarks(config, size, iteration)
+        result["timestamps"]["benchmark_start"] = t6
+        result["durations"]["benchmark"] = time.time() - t6
         if result_file is None:
             result["status"] = "bench_failed"
             result["end_time"] = time.time()
@@ -506,13 +587,6 @@ class DatasetManager:
         if efficiency_data:
             result["efficiency_analysis"] = efficiency_data
             result["neo4j_clearly_faster"] = self.efficiency_analyzer.is_neo4j_clearly_faster(efficiency_data)
-        
-        # 9. Финальная очистка
-        ok = self.cleanup_databases(config)
-        if not ok:
-            result["status"] = "final_cleanup_failed"
-            result["end_time"] = time.time()
-            return result
 
         result["status"] = "ok"
         result["end_time"] = time.time()
