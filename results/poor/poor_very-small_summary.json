@@ -1,0 +1,99 @@
+{
+  "infrastructure_config": "poor",
+  "size": "very-small",
+  "config": {
+    "users": 20000,
+    "avg_friends": 20,
+    "iterations": 3,
+    "query_runs": {
+      "simple_friends": 30,
+      "friends_of_friends": 60,
+      "mutual_friends": 30,
+      "friend_recommendations": 20,
+      "shortest_path": 6,
+      "cohort_analysis": 6,
+      "social_cities": 6,
+      "age_gap_analysis": 6,
+      "network_growth": 10,
+      "age_clustering": 6
+    }
+  },
+  "iterations": 3,
+  "successful_iterations": 0,
+  "duration": 37.208353996276855,
+  "results": [
+    {
+      "infrastructure_config": "poor",
+      "size": "very-small",
+      "iteration": 1,
+      "start_time": 1767030850.9991198,
+      "status": "load_failed",
+      "adaptations": {
+        "query_runs": {
+          "simple_friends": 10,
+          "friends_of_friends": 20,
+          "mutual_friends": 10,
+          "friend_recommendations": 6,
+          "shortest_path": 9,
+          "cohort_analysis": 2,
+          "social_cities": 3,
+          "age_gap_analysis": 2,
+          "network_growth": 15,
+          "age_clustering": 5
+        }
+      },
+      "errors": [
+        "Ошибка загрузки в базы данных"
+      ]
+    },
+    {
+      "infrastructure_config": "poor",
+      "size": "very-small",
+      "iteration": 2,
+      "start_time": 1767030881.803406,
+      "status": "load_failed",
+      "adaptations": {
+        "query_runs": {
+          "simple_friends": 10,
+          "friends_of_friends": 20,
+          "mutual_friends": 10,
+          "friend_recommendations": 6,
+          "shortest_path": 9,
+          "cohort_analysis": 2,
+          "social_cities": 3,
+          "age_gap_analysis": 2,
+          "network_growth": 15,
+          "age_clustering": 5
+        }
+      },
+      "errors": [
+        "Ошибка загрузки в базы данных"
+      ]
+    },
+    {
+      "infrastructure_config": "poor",
+      "size": "very-small",
+      "iteration": 3,
+      "start_time": 1767030884.8588903,
+      "status": "load_failed",
+      "adaptations": {
+        "query_runs": {
+          "simple_friends": 10,
+          "friends_of_friends": 20,
+          "mutual_friends": 10,
+          "friend_recommendations": 6,
+          "shortest_path": 9,
+          "cohort_analysis": 2,
+          "social_cities": 3,
+          "age_gap_analysis": 2,
+          "network_growth": 15,
+          "age_clustering": 5
+        }
+      },
+      "errors": [
+        "Ошибка загрузки в базы данных"
+      ]
+    }
+  ],
+  "timestamp": "2025-12-29T20:54:48.207304"
+}

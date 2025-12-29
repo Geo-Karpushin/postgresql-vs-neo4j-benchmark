@@ -1,16 +1,3 @@
-#!/usr/bin/env python3
-"""
-УНИВЕРСАЛЬНЫЙ ЗАГРУЗЧИК PostgreSQL и Neo4j
-------------------------------------------
-
-Выполняет:
-  • Загрузку users.csv и friendships.csv в PostgreSQL (COPY)
-  • Загрузку users.csv и friendships.csv в Neo4j (APOC import.csv)
-  • Проверяет наличие файлов
-  • Выдаёт exit(1) при любой ошибке
-  • НЕ очищает базы (очистка выполняется отдельно)
-"""
-
 import os
 import sys
 import traceback

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import PchipInterpolator
 
-RESULTS_GLOB = "results/benchmark_results_*.json"
+RESULTS_GLOB = "results/poor/results_*.json"
 CHARTS_DIR = Path("charts")
 CHARTS_DIR.mkdir(exist_ok=True)
 
@@ -33,7 +33,7 @@ def format_users(x):
     return str(x)
 
 def load_benchmarks(folder):
-    files = list(Path(folder).glob("benchmark_results_*.json"))
+    files = list(Path(folder).glob("results_*.json"))
 
     data = []
     user_counts = {}
@@ -336,7 +336,7 @@ def plot_charts(mean_data, user_counts, out_dir=CHARTS_DIR):
         print("Создан новый график:", out_dir / f"{q}.png")
 
 def main():
-    folder = "results"
+    folder = "results/medium"
     print(f"📂 Загружаю benchmark-файлы из: {folder}")
 
     data, user_counts = load_benchmarks(folder)

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 import statistics
 
-RESULTS_DIR = Path("results")
+RESULTS_DIR = Path("results/poor")
 
 
 def safe_fmt(x):
@@ -148,7 +148,7 @@ def main():
         print("Нет папки results/")
         return
 
-    files = sorted(RESULTS_DIR.glob("benchmark_results_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    files = sorted(RESULTS_DIR.glob("results_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not files:
         print("Нет файлов в results/")
         return

@@ -1,0 +1,12 @@
+{
+  "simple_friends": 6,
+  "friends_of_friends": 13,
+  "mutual_friends": 6,
+  "friend_recommendations": 4,
+  "shortest_path": 8,
+  "cohort_analysis": 2,
+  "social_cities": 5,
+  "age_gap_analysis": 2,
+  "network_growth": 9,
+  "age_clustering": 3
+}
