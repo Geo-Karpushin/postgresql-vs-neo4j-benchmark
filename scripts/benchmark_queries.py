@@ -130,9 +130,11 @@ NEO4J_QUERIES = {
 
     "friends_of_friends": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f1:User)-[:FRIENDS_WITH]-(f2:User)
-            WHERE f2 <> u
-              AND NOT (u)-[:FRIENDS_WITH]-(f2)
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f1:User)
+            WITH u, collect(DISTINCT f1) AS friends  
+            UNWIND friends AS f1  
+            MATCH (f1)-[:FRIENDS_WITH]-(f2:User)
+            WHERE f2 <> u AND NOT (u)-[:FRIENDS_WITH]-(f2)
             RETURN DISTINCT f2.user_id AS fof
         """,
         "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи"
@@ -140,8 +142,8 @@ NEO4J_QUERIES = {
 
     "mutual_friends": {
         "query": """
-            MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]-(f:User)
-            MATCH (b:User {user_id: $userB})-[:FRIENDS_WITH]-(f)
+            MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]-(f:User)-[:FRIENDS_WITH]-(b:User {user_id: $userB})
+            WHERE f <> a AND f <> b
             RETURN f.user_id AS mutual
         """,
         "description": "Поиск общих друзей для пары пользователей"
@@ -149,13 +151,15 @@ NEO4J_QUERIES = {
 
     "friend_recommendations": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f:User)-[:FRIENDS_WITH]-(rec:User)
-            WHERE rec <> u
-              AND NOT (u)-[:FRIENDS_WITH]-(rec)
-            RETURN rec.user_id AS candidate,
-                   COUNT(DISTINCT f) AS common_friends
+            MATCH (u:User {user_id: $user_id})
+            WITH u, [(u)-[:FRIENDS_WITH]-(f) | f] AS friends
+            UNWIND friends AS f
+            MATCH (f)-[:FRIENDS_WITH]-(rec)
+            WHERE rec <> u AND rec NOT IN friends
+            WITH rec, COUNT(*) AS common_friends
             ORDER BY common_friends DESC
             LIMIT 10
+            RETURN rec.user_id AS candidate, common_friends
         """,
         "description": "Рекомендации новых друзей на основе количества общих соседей"
     },
