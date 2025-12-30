@@ -122,37 +122,52 @@ POSTGRES_QUERIES = {
 NEO4J_QUERIES = {
     "simple_friends": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f:User)
-            RETURN f.user_id AS friend
+            MATCH (u:User)
+            WHERE u.user_id = $user_id   // ← index seek
+            MATCH (u)-[:FRIENDS_WITH]-(f:User)
+            RETURN f.user_id AS friend;
         """,
         "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)"
     },
 
     "friends_of_friends": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f1:User)
-            WITH u, collect(DISTINCT f1) AS friends  
-            UNWIND friends AS f1  
+            MATCH (u:User)
+            WHERE u.user_id = $user_id   // index
+            MATCH (u)-[:FRIENDS_WITH]-(f1:User)
             MATCH (f1)-[:FRIENDS_WITH]-(f2:User)
-            WHERE f2 <> u AND NOT (u)-[:FRIENDS_WITH]-(f2)
-            RETURN DISTINCT f2.user_id AS fof
+            WHERE f2.user_id <> $user_id
+            AND NOT EXISTS {
+            MATCH (u)-[:FRIENDS_WITH]-(f2)
+            }
+            RETURN DISTINCT f2.user_id AS fof;
         """,
         "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи"
     },
 
     "mutual_friends": {
         "query": """
-            MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]-(f:User)-[:FRIENDS_WITH]-(b:User {user_id: $userB})
-            WHERE f <> a AND f <> b
-            RETURN f.user_id AS mutual
+            MATCH (a:User)
+            WHERE a.user_id = $userA     // index
+            MATCH (b:User)
+            WHERE b.user_id = $userB     // index
+            MATCH (a)-[:FRIENDS_WITH]-(f:User)-[:FRIENDS_WITH]-(b)
+            RETURN f.user_id AS mutual;
         """,
         "description": "Поиск общих друзей для пары пользователей"
     },
 
     "friend_recommendations": {
         "query": """
-            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(common:User)-[:FRIENDS_WITH]-(rec:User)
-            WHERE rec <> u AND NOT (u)-[:FRIENDS_WITH]-(rec)
+            MATCH (u:User)
+            WHERE u.user_id = $user_id   // index seek
+
+            MATCH (u)-[:FRIENDS_WITH]-(common:User)
+            MATCH (common)-[:FRIENDS_WITH]-(rec:User)
+            WHERE rec.user_id <> $user_id
+            AND NOT EXISTS {
+                MATCH (u)-[:FRIENDS_WITH]-(rec)
+            }
             WITH rec, COUNT(DISTINCT common) AS common_friends
             ORDER BY common_friends DESC
             LIMIT 10
