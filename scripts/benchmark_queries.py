@@ -151,15 +151,12 @@ NEO4J_QUERIES = {
 
     "friend_recommendations": {
         "query": """
-            MATCH (u:User {user_id: $user_id})
-            WITH u, [(u)-[:FRIENDS_WITH]-(f) | f] AS friends
-            UNWIND friends AS f
-            MATCH (f)-[:FRIENDS_WITH]-(rec)
-            WHERE rec <> u AND rec NOT IN friends
-            WITH rec, COUNT(*) AS common_friends
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(common:User)-[:FRIENDS_WITH]-(rec:User)
+            WHERE rec <> u AND NOT (u)-[:FRIENDS_WITH]-(rec)
+            WITH rec, COUNT(DISTINCT common) AS common_friends
             ORDER BY common_friends DESC
             LIMIT 10
-            RETURN rec.user_id AS candidate, common_friends
+            RETURN rec.user_id AS candidate, common_friends;
         """,
         "description": "Рекомендации новых друзей на основе количества общих соседей"
     },
