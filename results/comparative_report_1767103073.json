@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "timestamp": "2025-12-30T16:57:53.103776",
+    "configs_tested": [
+      "poor",
+      "medium",
+      "rich"
+    ],
+    "total_duration": 4.0529139041900635
+  },
+  "config_comparison": {},
+  "summary": {
+    "best_config_per_size": {},
+    "overall_best_config": null,
+    "performance_differences": {}
+  }
+}

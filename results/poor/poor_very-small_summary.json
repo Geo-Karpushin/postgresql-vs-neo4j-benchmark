@@ -14,20 +14,20 @@
       "cohort_analysis": 6,
       "social_cities": 6,
       "age_gap_analysis": 6,
-      "network_growth": 10,
-      "age_clustering": 6
+      "network_growth": 2,
+      "age_clustering": 2
     }
   },
   "iterations": 3,
-  "successful_iterations": 0,
-  "duration": 37.208353996276855,
+  "successful_iterations": 3,
+  "duration": 450.9080023765564,
   "results": [
     {
       "infrastructure_config": "poor",
       "size": "very-small",
       "iteration": 1,
-      "start_time": 1767030850.9991198,
-      "status": "load_failed",
+      "start_time": 1767104447.2731576,
+      "status": "completed",
       "adaptations": {
         "query_runs": {
           "simple_friends": 10,
@@ -35,23 +35,646 @@
           "mutual_friends": 10,
           "friend_recommendations": 6,
           "shortest_path": 9,
-          "cohort_analysis": 2,
-          "social_cities": 3,
+          "cohort_analysis": 3,
+          "social_cities": 6,
           "age_gap_analysis": 2,
-          "network_growth": 15,
-          "age_clustering": 5
+          "network_growth": 5,
+          "age_clustering": 3
         }
       },
-      "errors": [
-        "Ошибка загрузки в базы данных"
-      ]
+      "errors": [],
+      "result_file": "/home/gk/database-benchmark/results/poor/results_poor_very-small_1_1767104496.json",
+      "efficiency_analysis": {
+        "summary": {
+          "average_efficiency": 0.57,
+          "median_efficiency": 0.12,
+          "neo4j_wins_count": 2,
+          "postgres_wins_count": 8,
+          "total_comparisons": 10,
+          "overall_winner": "PostgreSQL",
+          "performance_advantage": "43.3%"
+        },
+        "tests": {
+          "simple_friends": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -3313.8,
+            "postgres_time_ms": 0.79,
+            "neo4j_time_ms": 26.83,
+            "significance": "средняя"
+          },
+          "friends_of_friends": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -3004.7,
+            "postgres_time_ms": 4.43,
+            "neo4j_time_ms": 137.4,
+            "significance": "высокая"
+          },
+          "shortest_path": {
+            "efficiency_coefficient": 2.85,
+            "improvement_percentage": 64.9,
+            "postgres_time_ms": 317.29,
+            "neo4j_time_ms": 111.44,
+            "significance": "высокая"
+          },
+          "social_cities": {
+            "efficiency_coefficient": 0.73,
+            "improvement_percentage": -37.6,
+            "postgres_time_ms": 225.23,
+            "neo4j_time_ms": 309.88,
+            "significance": "высокая"
+          },
+          "friend_recommendations": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -3827.6,
+            "postgres_time_ms": 3.35,
+            "neo4j_time_ms": 131.64,
+            "significance": "средняя"
+          },
+          "cohort_analysis": {
+            "efficiency_coefficient": 0.08,
+            "improvement_percentage": -1176.0,
+            "postgres_time_ms": 62.38,
+            "neo4j_time_ms": 795.95,
+            "significance": "средняя"
+          },
+          "network_growth": {
+            "efficiency_coefficient": 1.27,
+            "improvement_percentage": 21.1,
+            "postgres_time_ms": 6547.3,
+            "neo4j_time_ms": 5164.27,
+            "significance": "высокая"
+          },
+          "age_clustering": {
+            "efficiency_coefficient": 0.47,
+            "improvement_percentage": -112.4,
+            "postgres_time_ms": 3040.16,
+            "neo4j_time_ms": 6458.44,
+            "significance": "высокая"
+          },
+          "age_gap_analysis": {
+            "efficiency_coefficient": 0.16,
+            "improvement_percentage": -525.9,
+            "postgres_time_ms": 74.43,
+            "neo4j_time_ms": 465.86,
+            "significance": "высокая"
+          },
+          "mutual_friends": {
+            "efficiency_coefficient": 0.02,
+            "improvement_percentage": -5042.9,
+            "postgres_time_ms": 1.1,
+            "neo4j_time_ms": 56.44,
+            "significance": "средняя"
+          }
+        }
+      },
+      "benchmark_data": {
+        "postgres": {
+          "simple_friends": {
+            "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)",
+            "iterations": 10,
+            "times": [
+              0.0021979180000926135,
+              0.0006032240000877209,
+              0.0005440249999537627,
+              0.0007956169999943086,
+              0.00047032399993440777,
+              0.0004880129999946803,
+              0.0011390380000193545,
+              0.00060923000000912,
+              0.0005654320000303414,
+              0.000447952000058649
+            ],
+            "min_time": 0.000447952000058649,
+            "max_time": 0.0021979180000926135,
+            "avg_time": 0.0007860773000174959,
+            "std_time": 0.0005367413588945575,
+            "results_count": 74
+          },
+          "friends_of_friends": {
+            "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи",
+            "iterations": 20,
+            "times": [
+              0.007332302000122581,
+              0.004762742999901093,
+              0.0044287559999247605,
+              0.0041712400000051275,
+              0.0053161939999881724,
+              0.004660235000073953,
+              0.004022803999987445,
+              0.0041105800000877935,
+              0.004198621000114144,
+              0.004100335999964955,
+              0.004066856000008556,
+              0.004931420000048092,
+              0.003969925000092189,
+              0.004485828000042602,
+              0.004279013000086707,
+              0.004164399999808666,
+              0.004111101999797029,
+              0.003880038000033892,
+              0.003890608000119755,
+              0.0036288870001044415
+            ],
+            "min_time": 0.0036288870001044415,
+            "max_time": 0.007332302000122581,
+            "avg_time": 0.004425594400015598,
+            "std_time": 0.0007913129285722875,
+            "results_count": 2861
+          },
+          "mutual_friends": {
+            "description": "Поиск общих друзей для пары пользователей",
+            "iterations": 10,
+            "times": [
+              0.003149562000089645,
+              0.0011616780000167637,
+              0.0013274160000946722,
+              0.0008925529998577986,
+              0.0005313519998253469,
+              0.0006452349998653517,
+              0.0008077309998952842,
+              0.0007740709997960948,
+              0.0008458990000690392,
+              0.0008394879998832039
+            ],
+            "min_time": 0.0005313519998253469,
+            "max_time": 0.003149562000089645,
+            "avg_time": 0.0010974984999393201,
+            "std_time": 0.0007567073956186801,
+            "results_count": 0
+          },
+          "friend_recommendations": {
+            "description": "Рекомендации новых друзей на основе числа общих друзей",
+            "iterations": 6,
+            "times": [
+              0.004394746999878407,
+              0.003329836999910185,
+              0.00329820800016023,
+              0.0031855999998242623,
+              0.0030248170000959362,
+              0.0028774070001418295
+            ],
+            "min_time": 0.0028774070001418295,
+            "max_time": 0.004394746999878407,
+            "avg_time": 0.0033517693333351417,
+            "std_time": 0.0005386431017532084,
+            "results_count": 10
+          },
+          "shortest_path": {
+            "description": "Поиск кратчайшего пути между двумя пользователями (ограничение по глубине)",
+            "iterations": 9,
+            "times": [
+              0.3757431860001361,
+              0.2986582080000062,
+              0.29628003700008776,
+              0.30468287799999416,
+              0.38994959599995127,
+              0.336351969999896,
+              0.309605577000184,
+              0.2742712950000623,
+              0.2700420539999868
+            ],
+            "min_time": 0.2700420539999868,
+            "max_time": 0.38994959599995127,
+            "avg_time": 0.317287200111145,
+            "std_time": 0.042055142306870234,
+            "results_count": 1
+          },
+          "cohort_analysis": {
+            "description": "Когортный анализ формирования дружеских связей в первый год после регистрации",
+            "iterations": 3,
+            "times": [
+              0.06228966399999081,
+              0.06279138700006115,
+              0.06205904700004794
+            ],
+            "min_time": 0.06205904700004794,
+            "max_time": 0.06279138700006115,
+            "avg_time": 0.06238003266669997,
+            "std_time": 0.00037444003638357126,
+            "results_count": 84
+          },
+          "social_cities": {
+            "description": "Определение городов с наибольшим числом межгородских дружеских связей",
+            "iterations": 6,
+            "times": [
+              0.21751520099996924,
+              0.2307941110000229,
+              0.22380353399989872,
+              0.22560388500005502,
+              0.22819279000009374,
+              0.2254950369999733
+            ],
+            "min_time": 0.21751520099996924,
+            "max_time": 0.2307941110000229,
+            "avg_time": 0.22523409300000216,
+            "std_time": 0.004505559205121573,
+            "results_count": 5
+          },
+          "age_gap_analysis": {
+            "description": "Распределение дружеских связей по разнице возраста пользователей",
+            "iterations": 2,
+            "times": [
+              0.07644535700001143,
+              0.07240854099995886
+            ],
+            "min_time": 0.07240854099995886,
+            "max_time": 0.07644535700001143,
+            "avg_time": 0.07442694899998514,
+            "std_time": 0.002854459968039525,
+            "results_count": 4
+          },
+          "network_growth": {
+            "description": "Анализ динамики роста социальной сети по кварталам",
+            "iterations": 5,
+            "times": [
+              6.4554287269997985,
+              6.649162888999854,
+              6.553861838000103,
+              6.557772851999971,
+              6.520254269000134
+            ],
+            "min_time": 6.4554287269997985,
+            "max_time": 6.649162888999854,
+            "avg_time": 6.5472961149999716,
+            "std_time": 0.07017939297770742,
+            "results_count": 21
+          },
+          "age_clustering": {
+            "description": "Оценка коэффициента кластеризации пользователей по возрастным группам",
+            "iterations": 3,
+            "times": [
+              3.2097957800001495,
+              2.9856767600001604,
+              2.92499700999997
+            ],
+            "min_time": 2.92499700999997,
+            "max_time": 3.2097957800001495,
+            "avg_time": 3.04015651666676,
+            "std_time": 0.15001205872609946,
+            "results_count": 6
+          }
+        },
+        "neo4j": {
+          "simple_friends": {
+            "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)",
+            "iterations": 10,
+            "times": [
+              0.13812024300000303,
+              0.03473257899986493,
+              0.011264062999998714,
+              0.01003583100009564,
+              0.009206534999975702,
+              0.010452891000113596,
+              0.00964425699999083,
+              0.009391565999976592,
+              0.008482456000137972,
+              0.027019363999897905
+            ],
+            "min_time": 0.008482456000137972,
+            "max_time": 0.13812024300000303,
+            "avg_time": 0.02683497850000549,
+            "std_time": 0.04012096209003146,
+            "results_count": 74
+          },
+          "friends_of_friends": {
+            "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи",
+            "iterations": 20,
+            "times": [
+              0.5709710290000203,
+              0.15073242800008302,
+              0.1345901340000637,
+              0.14972401099998933,
+              0.13653116699993006,
+              0.11612284700004238,
+              0.11359196700004759,
+              0.11597656399999323,
+              0.11378637400002845,
+              0.11069809199989322,
+              0.1080328240000199,
+              0.09570809900014865,
+              0.09410079300005236,
+              0.0957515110001168,
+              0.09278079199998501,
+              0.09498947099996258,
+              0.09495071500009544,
+              0.12434380599984252,
+              0.10469757400005619,
+              0.1299100169999292
+            ],
+            "min_time": 0.09278079199998501,
+            "max_time": 0.5709710290000203,
+            "avg_time": 0.137399510750015,
+            "std_time": 0.10366158644826318,
+            "results_count": 2861
+          },
+          "mutual_friends": {
+            "description": "Поиск общих друзей для пары пользователей",
+            "iterations": 10,
+            "times": [
+              0.4614911480000501,
+              0.005541159000131302,
+              0.005263083000045299,
+              0.005806676000020161,
+              0.005752343999802179,
+              0.05943455900001027,
+              0.005175802999929147,
+              0.005208539000022938,
+              0.005092901000125494,
+              0.005670722000104433
+            ],
+            "min_time": 0.005092901000125494,
+            "max_time": 0.4614911480000501,
+            "avg_time": 0.05644369340002413,
+            "std_time": 0.14332746701823545,
+            "results_count": 0
+          },
+          "friend_recommendations": {
+            "description": "Рекомендации новых друзей на основе количества общих соседей",
+            "iterations": 6,
+            "times": [
+              0.5900352199998906,
+              0.016511331000174323,
+              0.08012596200001099,
+              0.016486729999996896,
+              0.07414782399996511,
+              0.01256064500012144
+            ],
+            "min_time": 0.01256064500012144,
+            "max_time": 0.5900352199998906,
+            "avg_time": 0.13164461866669322,
+            "std_time": 0.22661862359814608,
+            "results_count": 10
+          },
+          "shortest_path": {
+            "description": "Поиск кратчайшего пути между двумя пользователями в графе",
+            "iterations": 9,
+            "times": [
+              0.5066738499999701,
+              0.0872174289997929,
+              0.02990808599997763,
+              0.08113483400006771,
+              0.0797022230001403,
+              0.025192832999891834,
+              0.07997529599992959,
+              0.026839645000109158,
+              0.08629248600004757
+            ],
+            "min_time": 0.025192832999891834,
+            "max_time": 0.5066738499999701,
+            "avg_time": 0.11143740911110298,
+            "std_time": 0.15066016833704335,
+            "results_count": 1
+          },
+          "cohort_analysis": {
+            "description": "Когортный анализ формирования дружеских связей в первый год",
+            "iterations": 3,
+            "times": [
+              1.715898862999893,
+              0.34958743500010314,
+              0.32236935900004937
+            ],
+            "min_time": 0.32236935900004937,
+            "max_time": 1.715898862999893,
+            "avg_time": 0.7959518856666818,
+            "std_time": 0.796813677558104,
+            "results_count": 48
+          },
+          "social_cities": {
+            "description": "Поиск городов с наибольшей межгородской социальной активностью",
+            "iterations": 6,
+            "times": [
+              0.40424619000009443,
+              0.28643171499993514,
+              0.2823524150001049,
+              0.3164271020000342,
+              0.2880171369999971,
+              0.2818140270001095
+            ],
+            "min_time": 0.2818140270001095,
+            "max_time": 0.40424619000009443,
+            "avg_time": 0.3098814310000459,
+            "std_time": 0.048002324884956156,
+            "results_count": 5
+          },
+          "age_gap_analysis": {
+            "description": "Распределение дружеских связей по возрастной разнице пользователей",
+            "iterations": 2,
+            "times": [
+              0.6314142300000185,
+              0.3003036410000277
+            ],
+            "min_time": 0.3003036410000277,
+            "max_time": 0.6314142300000185,
+            "avg_time": 0.4658589355000231,
+            "std_time": 0.23413054280456536,
+            "results_count": 4
+          },
+          "network_growth": {
+            "description": "Динамика роста количества дружеских связей во времени",
+            "iterations": 5,
+            "times": [
+              5.067102268000099,
+              5.8101205579998805,
+              4.461139532000061,
+              4.98377080299997,
+              5.499214524000081
+            ],
+            "min_time": 4.461139532000061,
+            "max_time": 5.8101205579998805,
+            "avg_time": 5.164269537000019,
+            "std_time": 0.5161697300101002,
+            "results_count": 20
+          },
+          "age_clustering": {
+            "description": "Коэффициент кластеризации пользователей, агрегированный по возрастным группам",
+            "iterations": 3,
+            "times": [
+              6.464028696000014,
+              7.180535195999937,
+              5.730765260999988
+            ],
+            "min_time": 5.730765260999988,
+            "max_time": 7.180535195999937,
+            "avg_time": 6.458443050999979,
+            "std_time": 0.7249011075174248,
+            "results_count": 6
+          }
+        },
+        "efficiency": {
+          "simple_friends": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -3313.8,
+            "postgres_time_ms": 0.79,
+            "neo4j_time_ms": 26.83,
+            "significance": "средняя",
+            "result_count_pg": 74,
+            "result_count_neo": 74
+          },
+          "friends_of_friends": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -3004.7,
+            "postgres_time_ms": 4.43,
+            "neo4j_time_ms": 137.4,
+            "significance": "высокая",
+            "result_count_pg": 2861,
+            "result_count_neo": 2861
+          },
+          "shortest_path": {
+            "efficiency_coefficient": 2.85,
+            "neo4j_faster_times": 2.8,
+            "improvement_percentage": 64.9,
+            "postgres_time_ms": 317.29,
+            "neo4j_time_ms": 111.44,
+            "significance": "высокая",
+            "result_count_pg": 1,
+            "result_count_neo": 1
+          },
+          "social_cities": {
+            "efficiency_coefficient": 0.73,
+            "neo4j_faster_times": 0.7,
+            "improvement_percentage": -37.6,
+            "postgres_time_ms": 225.23,
+            "neo4j_time_ms": 309.88,
+            "significance": "высокая",
+            "result_count_pg": 5,
+            "result_count_neo": 5
+          },
+          "friend_recommendations": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -3827.6,
+            "postgres_time_ms": 3.35,
+            "neo4j_time_ms": 131.64,
+            "significance": "средняя",
+            "result_count_pg": 10,
+            "result_count_neo": 10
+          },
+          "cohort_analysis": {
+            "efficiency_coefficient": 0.08,
+            "neo4j_faster_times": 0.1,
+            "improvement_percentage": -1176.0,
+            "postgres_time_ms": 62.38,
+            "neo4j_time_ms": 795.95,
+            "significance": "средняя",
+            "result_count_pg": 84,
+            "result_count_neo": 48
+          },
+          "network_growth": {
+            "efficiency_coefficient": 1.27,
+            "neo4j_faster_times": 1.3,
+            "improvement_percentage": 21.1,
+            "postgres_time_ms": 6547.3,
+            "neo4j_time_ms": 5164.27,
+            "significance": "высокая",
+            "result_count_pg": 21,
+            "result_count_neo": 20
+          },
+          "age_clustering": {
+            "efficiency_coefficient": 0.47,
+            "neo4j_faster_times": 0.5,
+            "improvement_percentage": -112.4,
+            "postgres_time_ms": 3040.16,
+            "neo4j_time_ms": 6458.44,
+            "significance": "высокая",
+            "result_count_pg": 6,
+            "result_count_neo": 6
+          },
+          "age_gap_analysis": {
+            "efficiency_coefficient": 0.16,
+            "neo4j_faster_times": 0.2,
+            "improvement_percentage": -525.9,
+            "postgres_time_ms": 74.43,
+            "neo4j_time_ms": 465.86,
+            "significance": "высокая",
+            "result_count_pg": 4,
+            "result_count_neo": 4
+          },
+          "mutual_friends": {
+            "efficiency_coefficient": 0.02,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -5042.9,
+            "postgres_time_ms": 1.1,
+            "neo4j_time_ms": 56.44,
+            "significance": "средняя",
+            "result_count_pg": 0,
+            "result_count_neo": 0
+          },
+          "_summary": {
+            "average_efficiency": 0.57,
+            "median_efficiency": 0.12,
+            "max_efficiency": 2.85,
+            "min_efficiency": 0.02,
+            "neo4j_wins_count": 2,
+            "postgres_wins_count": 8,
+            "total_comparisons": 10,
+            "overall_winner": "PostgreSQL",
+            "performance_advantage": "43.3%"
+          }
+        },
+        "metadata": {
+          "dataset": "very-small",
+          "docker_config": "poor",
+          "timestamp": 1767104496.4470873,
+          "database_metrics": {
+            "postgres": {
+              "users_count": 20000,
+              "friendships_count": 199363,
+              "users_with_friends": 16645,
+              "unique_friends": 19999,
+              "avg_friends_per_user": 1.0,
+              "age_distribution": {
+                "min": 18,
+                "max": 69,
+                "avg": 43.36475,
+                "median": 43.0
+              }
+            },
+            "neo4j": {
+              "users_count": 20000,
+              "friendships_count": 199363,
+              "avg_friends_per_user": 19.936299999999974,
+              "min_friends": 9,
+              "max_friends": 1115
+            }
+          },
+          "dataset_size": {
+            "users_count": 20000,
+            "friendships_count": 199363,
+            "avg_friends_per_user": 1.0,
+            "source": "postgres"
+          },
+          "config": {
+            "query_runs": {
+              "simple_friends": 10,
+              "friends_of_friends": 20,
+              "mutual_friends": 10,
+              "friend_recommendations": 6,
+              "shortest_path": 9,
+              "cohort_analysis": 3,
+              "social_cities": 6,
+              "age_gap_analysis": 2,
+              "network_growth": 5,
+              "age_clustering": 3
+            },
+            "dataset_size_config": {
+              "users": 20000,
+              "avg_friends": 1.0,
+              "iterations": 1
+            }
+          }
+        }
+      },
+      "end_time": 1767104609.0774693,
+      "duration": 161.80431199073792
     },
     {
       "infrastructure_config": "poor",
       "size": "very-small",
       "iteration": 2,
-      "start_time": 1767030881.803406,
-      "status": "load_failed",
+      "start_time": 1767104609.0781035,
+      "status": "completed",
       "adaptations": {
         "query_runs": {
           "simple_friends": 10,
@@ -59,23 +682,640 @@
           "mutual_friends": 10,
           "friend_recommendations": 6,
           "shortest_path": 9,
-          "cohort_analysis": 2,
-          "social_cities": 3,
+          "cohort_analysis": 3,
+          "social_cities": 6,
           "age_gap_analysis": 2,
-          "network_growth": 15,
-          "age_clustering": 5
+          "network_growth": 2,
+          "age_clustering": 3
         }
       },
-      "errors": [
-        "Ошибка загрузки в базы данных"
-      ]
+      "errors": [],
+      "result_file": "/home/gk/database-benchmark/results/poor/results_poor_very-small_2_1767104665.json",
+      "efficiency_analysis": {
+        "summary": {
+          "average_efficiency": 1.03,
+          "median_efficiency": 0.14,
+          "neo4j_wins_count": 2,
+          "postgres_wins_count": 8,
+          "total_comparisons": 10,
+          "overall_winner": "Neo4j",
+          "performance_advantage": "2.6%"
+        },
+        "tests": {
+          "network_growth": {
+            "efficiency_coefficient": 1.24,
+            "improvement_percentage": 19.7,
+            "postgres_time_ms": 6580.45,
+            "neo4j_time_ms": 5287.29,
+            "significance": "средняя"
+          },
+          "shortest_path": {
+            "efficiency_coefficient": 7.37,
+            "improvement_percentage": 86.4,
+            "postgres_time_ms": 280.97,
+            "neo4j_time_ms": 38.12,
+            "significance": "высокая"
+          },
+          "mutual_friends": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -3189.5,
+            "postgres_time_ms": 0.78,
+            "neo4j_time_ms": 25.51,
+            "significance": "средняя"
+          },
+          "friend_recommendations": {
+            "efficiency_coefficient": 0.02,
+            "improvement_percentage": -4127.2,
+            "postgres_time_ms": 1.52,
+            "neo4j_time_ms": 64.32,
+            "significance": "средняя"
+          },
+          "cohort_analysis": {
+            "efficiency_coefficient": 0.11,
+            "improvement_percentage": -846.6,
+            "postgres_time_ms": 62.55,
+            "neo4j_time_ms": 592.15,
+            "significance": "высокая"
+          },
+          "age_gap_analysis": {
+            "efficiency_coefficient": 0.16,
+            "improvement_percentage": -511.8,
+            "postgres_time_ms": 72.74,
+            "neo4j_time_ms": 445.03,
+            "significance": "высокая"
+          },
+          "age_clustering": {
+            "efficiency_coefficient": 0.57,
+            "improvement_percentage": -76.2,
+            "postgres_time_ms": 3351.01,
+            "neo4j_time_ms": 5903.82,
+            "significance": "высокая"
+          },
+          "simple_friends": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -2923.3,
+            "postgres_time_ms": 0.69,
+            "neo4j_time_ms": 20.99,
+            "significance": "средняя"
+          },
+          "friends_of_friends": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -3456.2,
+            "postgres_time_ms": 1.73,
+            "neo4j_time_ms": 61.35,
+            "significance": "средняя"
+          },
+          "social_cities": {
+            "efficiency_coefficient": 0.7,
+            "improvement_percentage": -43.8,
+            "postgres_time_ms": 223.57,
+            "neo4j_time_ms": 321.49,
+            "significance": "средняя"
+          }
+        }
+      },
+      "benchmark_data": {
+        "postgres": {
+          "simple_friends": {
+            "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)",
+            "iterations": 10,
+            "times": [
+              0.0024692450001566613,
+              0.0005190259998926194,
+              0.0004477410000163218,
+              0.00044816299987360253,
+              0.00046346300018740294,
+              0.0006394810000074358,
+              0.0006358809998801007,
+              0.00046828499989715056,
+              0.0004307320000407344,
+              0.0004192790001980029
+            ],
+            "min_time": 0.0004192790001980029,
+            "max_time": 0.0024692450001566613,
+            "avg_time": 0.0006941296000150032,
+            "std_time": 0.0006287921618875685,
+            "results_count": 16
+          },
+          "friends_of_friends": {
+            "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи",
+            "iterations": 20,
+            "times": [
+              0.0036333170000943937,
+              0.0019461049998881208,
+              0.0015813959998922655,
+              0.001417252000010194,
+              0.0018835620001027564,
+              0.001465183000163961,
+              0.0015154739999161393,
+              0.001419847000079244,
+              0.0013586780000878207,
+              0.001465678999920783,
+              0.0014186949999839271,
+              0.0013710949999676814,
+              0.001435620999927778,
+              0.001461243999983708,
+              0.001985061999903337,
+              0.0019329829999605863,
+              0.001492054000209464,
+              0.0019459679999727086,
+              0.0023065360001055524,
+              0.0014672759998575202
+            ],
+            "min_time": 0.0013586780000878207,
+            "max_time": 0.0036333170000943937,
+            "avg_time": 0.001725151350001397,
+            "std_time": 0.0005245530291271002,
+            "results_count": 744
+          },
+          "mutual_friends": {
+            "description": "Поиск общих друзей для пары пользователей",
+            "iterations": 10,
+            "times": [
+              0.001222106000113854,
+              0.0008693600000242441,
+              0.0007153260000904993,
+              0.0009944890000497253,
+              0.0006285980000484415,
+              0.0006306719999429333,
+              0.0006321160001334647,
+              0.0006975339999826247,
+              0.0007122150000213878,
+              0.0006513929999982793
+            ],
+            "min_time": 0.0006285980000484415,
+            "max_time": 0.001222106000113854,
+            "avg_time": 0.0007753809000405453,
+            "std_time": 0.00019676385280629162,
+            "results_count": 0
+          },
+          "friend_recommendations": {
+            "description": "Рекомендации новых друзей на основе числа общих друзей",
+            "iterations": 6,
+            "times": [
+              0.0017996220001350594,
+              0.0022013199998127675,
+              0.001324936999935744,
+              0.0013011600001391344,
+              0.0012472589999106276,
+              0.0012556080000649672
+            ],
+            "min_time": 0.0012472589999106276,
+            "max_time": 0.0022013199998127675,
+            "avg_time": 0.0015216509999997168,
+            "std_time": 0.0003930904101071343,
+            "results_count": 10
+          },
+          "shortest_path": {
+            "description": "Поиск кратчайшего пути между двумя пользователями (ограничение по глубине)",
+            "iterations": 9,
+            "times": [
+              0.357380952000085,
+              0.2739081089998763,
+              0.27032616199994663,
+              0.26963899099996524,
+              0.27156692999983534,
+              0.27115051999999196,
+              0.27162127300016436,
+              0.27210721899996315,
+              0.27103865699996277
+            ],
+            "min_time": 0.26963899099996524,
+            "max_time": 0.357380952000085,
+            "avg_time": 0.280970979222199,
+            "std_time": 0.02867840216088647,
+            "results_count": 1
+          },
+          "cohort_analysis": {
+            "description": "Когортный анализ формирования дружеских связей в первый год после регистрации",
+            "iterations": 3,
+            "times": [
+              0.06408675500006211,
+              0.061996670000098675,
+              0.06157384500011176
+            ],
+            "min_time": 0.06157384500011176,
+            "max_time": 0.06408675500006211,
+            "avg_time": 0.06255242333342419,
+            "std_time": 0.0013454833676376046,
+            "results_count": 84
+          },
+          "social_cities": {
+            "description": "Определение городов с наибольшим числом межгородских дружеских связей",
+            "iterations": 6,
+            "times": [
+              0.22013246999995317,
+              0.22446746100013115,
+              0.22593846300014775,
+              0.2235923929999899,
+              0.2231408959999044,
+              0.2241379230001712
+            ],
+            "min_time": 0.22013246999995317,
+            "max_time": 0.22593846300014775,
+            "avg_time": 0.22356826766671625,
+            "std_time": 0.0019359140450260523,
+            "results_count": 5
+          },
+          "age_gap_analysis": {
+            "description": "Распределение дружеских связей по разнице возраста пользователей",
+            "iterations": 2,
+            "times": [
+              0.07511511199982124,
+              0.07035544999985177
+            ],
+            "min_time": 0.07035544999985177,
+            "max_time": 0.07511511199982124,
+            "avg_time": 0.0727352809998365,
+            "std_time": 0.0033655892763343347,
+            "results_count": 4
+          },
+          "network_growth": {
+            "description": "Анализ динамики роста социальной сети по кварталам",
+            "iterations": 2,
+            "times": [
+              6.520746350000081,
+              6.64014909399998
+            ],
+            "min_time": 6.520746350000081,
+            "max_time": 6.64014909399998,
+            "avg_time": 6.580447722000031,
+            "std_time": 0.08443048997460996,
+            "results_count": 21
+          },
+          "age_clustering": {
+            "description": "Оценка коэффициента кластеризации пользователей по возрастным группам",
+            "iterations": 3,
+            "times": [
+              3.156309025999917,
+              3.761571539999977,
+              3.1351644079998096
+            ],
+            "min_time": 3.1351644079998096,
+            "max_time": 3.761571539999977,
+            "avg_time": 3.3510149913332348,
+            "std_time": 0.3557095492919091,
+            "results_count": 6
+          }
+        },
+        "neo4j": {
+          "simple_friends": {
+            "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)",
+            "iterations": 10,
+            "times": [
+              0.12965528499989887,
+              0.007039337999913187,
+              0.0067774480000935,
+              0.0071850089998406474,
+              0.006600903999924412,
+              0.024499748000152977,
+              0.006144397000070967,
+              0.007550292999894737,
+              0.0072423659999003576,
+              0.0071646960000180115
+            ],
+            "min_time": 0.006144397000070967,
+            "max_time": 0.12965528499989887,
+            "avg_time": 0.020985948399970766,
+            "std_time": 0.03858015886113911,
+            "results_count": 16
+          },
+          "friends_of_friends": {
+            "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи",
+            "iterations": 20,
+            "times": [
+              0.5160939150000559,
+              0.041426063000017166,
+              0.04219302399997105,
+              0.037684234999915134,
+              0.051079853999908664,
+              0.040373999999928856,
+              0.03771602400001939,
+              0.04152045699993323,
+              0.039401086999987456,
+              0.03793288599990774,
+              0.0448363129999052,
+              0.03547474099991632,
+              0.031977148000123634,
+              0.03317146199992749,
+              0.03462483700013763,
+              0.03303333600001679,
+              0.032312998999941556,
+              0.032115746000044965,
+              0.032282992000091326,
+              0.03175782500011337
+            ],
+            "min_time": 0.03175782500011337,
+            "max_time": 0.5160939150000559,
+            "avg_time": 0.06135044719999314,
+            "std_time": 0.10715873117348396,
+            "results_count": 744
+          },
+          "mutual_friends": {
+            "description": "Поиск общих друзей для пары пользователей",
+            "iterations": 10,
+            "times": [
+              0.18767167400005746,
+              0.00560575700001209,
+              0.004996880999897257,
+              0.005361585999935414,
+              0.005279588000121294,
+              0.0052400080001007154,
+              0.025476099999877988,
+              0.005071080000107031,
+              0.005392902000039612,
+              0.004968504999851575
+            ],
+            "min_time": 0.004968504999851575,
+            "max_time": 0.18767167400005746,
+            "avg_time": 0.025506408100000044,
+            "std_time": 0.057333214444479814,
+            "results_count": 0
+          },
+          "friend_recommendations": {
+            "description": "Рекомендации новых друзей на основе количества общих соседей",
+            "iterations": 6,
+            "times": [
+              0.30710316099998636,
+              0.008444364000069982,
+              0.009698421999928541,
+              0.008582212999954208,
+              0.008986437999965347,
+              0.04312490200004504
+            ],
+            "min_time": 0.008444364000069982,
+            "max_time": 0.30710316099998636,
+            "avg_time": 0.06432324999999157,
+            "std_time": 0.11972218077356152,
+            "results_count": 10
+          },
+          "shortest_path": {
+            "description": "Поиск кратчайшего пути между двумя пользователями в графе",
+            "iterations": 9,
+            "times": [
+              0.22549413499996263,
+              0.012034384000116916,
+              0.009751569000172822,
+              0.05117802499989921,
+              0.009155839999948512,
+              0.00921922500015171,
+              0.008769808999886664,
+              0.009525325000140583,
+              0.007973759000151404
+            ],
+            "min_time": 0.007973759000151404,
+            "max_time": 0.22549413499996263,
+            "avg_time": 0.03812245233338116,
+            "std_time": 0.07161255827878077,
+            "results_count": 1
+          },
+          "cohort_analysis": {
+            "description": "Когортный анализ формирования дружеских связей в первый год",
+            "iterations": 3,
+            "times": [
+              1.0382739829999537,
+              0.39506104199995207,
+              0.34310345099993356
+            ],
+            "min_time": 0.34310345099993356,
+            "max_time": 1.0382739829999537,
+            "avg_time": 0.5921461586666131,
+            "std_time": 0.38723045405666545,
+            "results_count": 48
+          },
+          "social_cities": {
+            "description": "Поиск городов с наибольшей межгородской социальной активностью",
+            "iterations": 6,
+            "times": [
+              0.5198455620000004,
+              0.31403002100000776,
+              0.285935451999876,
+              0.27054632099998344,
+              0.2668749660001595,
+              0.2716987210001207
+            ],
+            "min_time": 0.2668749660001595,
+            "max_time": 0.5198455620000004,
+            "avg_time": 0.3214885071666913,
+            "std_time": 0.09871366467358249,
+            "results_count": 5
+          },
+          "age_gap_analysis": {
+            "description": "Распределение дружеских связей по возрастной разнице пользователей",
+            "iterations": 2,
+            "times": [
+              0.6152290129998619,
+              0.27482700700011264
+            ],
+            "min_time": 0.27482700700011264,
+            "max_time": 0.6152290129998619,
+            "avg_time": 0.44502800999998726,
+            "std_time": 0.24070056677192653,
+            "results_count": 4
+          },
+          "network_growth": {
+            "description": "Динамика роста количества дружеских связей во времени",
+            "iterations": 2,
+            "times": [
+              6.526172948000067,
+              4.048400654999796
+            ],
+            "min_time": 4.048400654999796,
+            "max_time": 6.526172948000067,
+            "avg_time": 5.287286801499931,
+            "std_time": 1.7520495906166327,
+            "results_count": 20
+          },
+          "age_clustering": {
+            "description": "Коэффициент кластеризации пользователей, агрегированный по возрастным группам",
+            "iterations": 3,
+            "times": [
+              7.4624094589999,
+              4.932859450000024,
+              5.3161901099999795
+            ],
+            "min_time": 4.932859450000024,
+            "max_time": 7.4624094589999,
+            "avg_time": 5.903819672999968,
+            "std_time": 1.3633184475724984,
+            "results_count": 6
+          }
+        },
+        "efficiency": {
+          "network_growth": {
+            "efficiency_coefficient": 1.24,
+            "neo4j_faster_times": 1.2,
+            "improvement_percentage": 19.7,
+            "postgres_time_ms": 6580.45,
+            "neo4j_time_ms": 5287.29,
+            "significance": "средняя",
+            "result_count_pg": 21,
+            "result_count_neo": 20
+          },
+          "shortest_path": {
+            "efficiency_coefficient": 7.37,
+            "neo4j_faster_times": 7.4,
+            "improvement_percentage": 86.4,
+            "postgres_time_ms": 280.97,
+            "neo4j_time_ms": 38.12,
+            "significance": "высокая",
+            "result_count_pg": 1,
+            "result_count_neo": 1
+          },
+          "mutual_friends": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -3189.5,
+            "postgres_time_ms": 0.78,
+            "neo4j_time_ms": 25.51,
+            "significance": "средняя",
+            "result_count_pg": 0,
+            "result_count_neo": 0
+          },
+          "friend_recommendations": {
+            "efficiency_coefficient": 0.02,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -4127.2,
+            "postgres_time_ms": 1.52,
+            "neo4j_time_ms": 64.32,
+            "significance": "средняя",
+            "result_count_pg": 10,
+            "result_count_neo": 10
+          },
+          "cohort_analysis": {
+            "efficiency_coefficient": 0.11,
+            "neo4j_faster_times": 0.1,
+            "improvement_percentage": -846.6,
+            "postgres_time_ms": 62.55,
+            "neo4j_time_ms": 592.15,
+            "significance": "высокая",
+            "result_count_pg": 84,
+            "result_count_neo": 48
+          },
+          "age_gap_analysis": {
+            "efficiency_coefficient": 0.16,
+            "neo4j_faster_times": 0.2,
+            "improvement_percentage": -511.8,
+            "postgres_time_ms": 72.74,
+            "neo4j_time_ms": 445.03,
+            "significance": "высокая",
+            "result_count_pg": 4,
+            "result_count_neo": 4
+          },
+          "age_clustering": {
+            "efficiency_coefficient": 0.57,
+            "neo4j_faster_times": 0.6,
+            "improvement_percentage": -76.2,
+            "postgres_time_ms": 3351.01,
+            "neo4j_time_ms": 5903.82,
+            "significance": "высокая",
+            "result_count_pg": 6,
+            "result_count_neo": 6
+          },
+          "simple_friends": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -2923.3,
+            "postgres_time_ms": 0.69,
+            "neo4j_time_ms": 20.99,
+            "significance": "средняя",
+            "result_count_pg": 16,
+            "result_count_neo": 16
+          },
+          "friends_of_friends": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -3456.2,
+            "postgres_time_ms": 1.73,
+            "neo4j_time_ms": 61.35,
+            "significance": "средняя",
+            "result_count_pg": 744,
+            "result_count_neo": 744
+          },
+          "social_cities": {
+            "efficiency_coefficient": 0.7,
+            "neo4j_faster_times": 0.7,
+            "improvement_percentage": -43.8,
+            "postgres_time_ms": 223.57,
+            "neo4j_time_ms": 321.49,
+            "significance": "средняя",
+            "result_count_pg": 5,
+            "result_count_neo": 5
+          },
+          "_summary": {
+            "average_efficiency": 1.03,
+            "median_efficiency": 0.14,
+            "max_efficiency": 7.37,
+            "min_efficiency": 0.02,
+            "neo4j_wins_count": 2,
+            "postgres_wins_count": 8,
+            "total_comparisons": 10,
+            "overall_winner": "Neo4j",
+            "performance_advantage": "2.6%"
+          }
+        },
+        "metadata": {
+          "dataset": "very-small",
+          "docker_config": "poor",
+          "timestamp": 1767104665.4935973,
+          "database_metrics": {
+            "postgres": {
+              "users_count": 20000,
+              "friendships_count": 199357,
+              "users_with_friends": 16704,
+              "unique_friends": 19999,
+              "avg_friends_per_user": 1.0,
+              "age_distribution": {
+                "min": 18,
+                "max": 69,
+                "avg": 43.3528,
+                "median": 43.0
+              }
+            },
+            "neo4j": {
+              "users_count": 20000,
+              "friendships_count": 199357,
+              "avg_friends_per_user": 19.935700000000114,
+              "min_friends": 9,
+              "max_friends": 1209
+            }
+          },
+          "dataset_size": {
+            "users_count": 20000,
+            "friendships_count": 199357,
+            "avg_friends_per_user": 1.0,
+            "source": "postgres"
+          },
+          "config": {
+            "query_runs": {
+              "simple_friends": 10,
+              "friends_of_friends": 20,
+              "mutual_friends": 10,
+              "friend_recommendations": 6,
+              "shortest_path": 9,
+              "cohort_analysis": 3,
+              "social_cities": 6,
+              "age_gap_analysis": 2,
+              "network_growth": 2,
+              "age_clustering": 3
+            },
+            "dataset_size_config": {
+              "users": 20000,
+              "avg_friends": 1.0,
+              "iterations": 1
+            }
+          }
+        }
+      },
+      "end_time": 1767104736.3798106,
+      "duration": 127.30170726776123
     },
     {
       "infrastructure_config": "poor",
       "size": "very-small",
       "iteration": 3,
-      "start_time": 1767030884.8588903,
-      "status": "load_failed",
+      "start_time": 1767104736.3802214,
+      "status": "completed",
       "adaptations": {
         "query_runs": {
           "simple_friends": 10,
@@ -83,17 +1323,638 @@
           "mutual_friends": 10,
           "friend_recommendations": 6,
           "shortest_path": 9,
-          "cohort_analysis": 2,
-          "social_cities": 3,
+          "cohort_analysis": 3,
+          "social_cities": 5,
           "age_gap_analysis": 2,
-          "network_growth": 15,
-          "age_clustering": 5
+          "network_growth": 5,
+          "age_clustering": 3
         }
       },
-      "errors": [
-        "Ошибка загрузки в базы данных"
-      ]
+      "errors": [],
+      "result_file": "/home/gk/database-benchmark/results/poor/results_poor_very-small_3_1767104794.json",
+      "efficiency_analysis": {
+        "summary": {
+          "average_efficiency": 0.57,
+          "median_efficiency": 0.11,
+          "neo4j_wins_count": 2,
+          "postgres_wins_count": 8,
+          "total_comparisons": 10,
+          "overall_winner": "PostgreSQL",
+          "performance_advantage": "42.7%"
+        },
+        "tests": {
+          "age_clustering": {
+            "efficiency_coefficient": 0.53,
+            "improvement_percentage": -89.7,
+            "postgres_time_ms": 3025.56,
+            "neo4j_time_ms": 5739.88,
+            "significance": "высокая"
+          },
+          "shortest_path": {
+            "efficiency_coefficient": 2.79,
+            "improvement_percentage": 64.2,
+            "postgres_time_ms": 278.6,
+            "neo4j_time_ms": 99.76,
+            "significance": "средняя"
+          },
+          "simple_friends": {
+            "efficiency_coefficient": 0.03,
+            "improvement_percentage": -3057.3,
+            "postgres_time_ms": 0.63,
+            "neo4j_time_ms": 19.74,
+            "significance": "средняя"
+          },
+          "age_gap_analysis": {
+            "efficiency_coefficient": 0.15,
+            "improvement_percentage": -589.1,
+            "postgres_time_ms": 71.7,
+            "neo4j_time_ms": 494.1,
+            "significance": "высокая"
+          },
+          "mutual_friends": {
+            "efficiency_coefficient": 0.01,
+            "improvement_percentage": -10556.8,
+            "postgres_time_ms": 0.63,
+            "neo4j_time_ms": 66.69,
+            "significance": "средняя"
+          },
+          "social_cities": {
+            "efficiency_coefficient": 0.71,
+            "improvement_percentage": -41.3,
+            "postgres_time_ms": 223.48,
+            "neo4j_time_ms": 315.67,
+            "significance": "высокая"
+          },
+          "friends_of_friends": {
+            "efficiency_coefficient": 0.02,
+            "improvement_percentage": -4963.6,
+            "postgres_time_ms": 1.41,
+            "neo4j_time_ms": 71.6,
+            "significance": "средняя"
+          },
+          "friend_recommendations": {
+            "efficiency_coefficient": 0.01,
+            "improvement_percentage": -10644.1,
+            "postgres_time_ms": 1.22,
+            "neo4j_time_ms": 130.72,
+            "significance": "средняя"
+          },
+          "network_growth": {
+            "efficiency_coefficient": 1.4,
+            "improvement_percentage": 28.4,
+            "postgres_time_ms": 6491.34,
+            "neo4j_time_ms": 4645.93,
+            "significance": "высокая"
+          },
+          "cohort_analysis": {
+            "efficiency_coefficient": 0.08,
+            "improvement_percentage": -1113.3,
+            "postgres_time_ms": 60.33,
+            "neo4j_time_ms": 731.91,
+            "significance": "средняя"
+          }
+        }
+      },
+      "benchmark_data": {
+        "postgres": {
+          "simple_friends": {
+            "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)",
+            "iterations": 10,
+            "times": [
+              0.002229074000069886,
+              0.0007442360001732595,
+              0.00045075499997437873,
+              0.0004083390001596854,
+              0.0003840109998236585,
+              0.00039928599994709657,
+              0.00039788800017959147,
+              0.0004490599999371625,
+              0.00040630100011185277,
+              0.00038258599988694186
+            ],
+            "min_time": 0.00038258599988694186,
+            "max_time": 0.002229074000069886,
+            "avg_time": 0.0006251536000263513,
+            "std_time": 0.0005737522448764484,
+            "results_count": 13
+          },
+          "friends_of_friends": {
+            "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи",
+            "iterations": 20,
+            "times": [
+              0.0031077240000740858,
+              0.001608270999895467,
+              0.0012666119998812064,
+              0.0013561860000663728,
+              0.0013392870000643597,
+              0.0012239619998126727,
+              0.0013530470000659989,
+              0.0014718909999373864,
+              0.0012254590001248289,
+              0.0012065139999322128,
+              0.001419618999989325,
+              0.0012166940000497561,
+              0.001188966999961849,
+              0.0014095199999246688,
+              0.0012583440000071278,
+              0.0013687919999938458,
+              0.001392595999959667,
+              0.0013662569999723928,
+              0.001199398999915502,
+              0.0013009750000492204
+            ],
+            "min_time": 0.001188966999961849,
+            "max_time": 0.0031077240000740858,
+            "avg_time": 0.0014140057999838973,
+            "std_time": 0.00041271429012104026,
+            "results_count": 558
+          },
+          "mutual_friends": {
+            "description": "Поиск общих друзей для пары пользователей",
+            "iterations": 10,
+            "times": [
+              0.0009470530001181032,
+              0.0006027250001352513,
+              0.0005448360000173125,
+              0.0005432049999853916,
+              0.0006178549999731331,
+              0.0007270680000601715,
+              0.0005557920001137973,
+              0.0005498589998751413,
+              0.000601634000076956,
+              0.0005679009998402762
+            ],
+            "min_time": 0.0005432049999853916,
+            "max_time": 0.0009470530001181032,
+            "avg_time": 0.0006257928000195534,
+            "std_time": 0.00012562546835170768,
+            "results_count": 0
+          },
+          "friend_recommendations": {
+            "description": "Рекомендации новых друзей на основе числа общих друзей",
+            "iterations": 6,
+            "times": [
+              0.0018031709998922452,
+              0.0014006919998337253,
+              0.0011739550000129384,
+              0.0009694779998881131,
+              0.0009415880001597543,
+              0.001011306999998851
+            ],
+            "min_time": 0.0009415880001597543,
+            "max_time": 0.0018031709998922452,
+            "avg_time": 0.0012166984999642712,
+            "std_time": 0.00033425141405017564,
+            "results_count": 10
+          },
+          "shortest_path": {
+            "description": "Поиск кратчайшего пути между двумя пользователями (ограничение по глубине)",
+            "iterations": 9,
+            "times": [
+              0.3815331690000221,
+              0.2673976640001001,
+              0.2696130130000256,
+              0.2633570129999043,
+              0.2638709700001982,
+              0.2661915369999406,
+              0.2641223670000272,
+              0.2639164059999075,
+              0.26743461500018384
+            ],
+            "min_time": 0.2633570129999043,
+            "max_time": 0.3815331690000221,
+            "avg_time": 0.27860408377781215,
+            "std_time": 0.03865655497642648,
+            "results_count": 1
+          },
+          "cohort_analysis": {
+            "description": "Когортный анализ формирования дружеских связей в первый год после регистрации",
+            "iterations": 3,
+            "times": [
+              0.06110864099991886,
+              0.059766400000171416,
+              0.06010403799996311
+            ],
+            "min_time": 0.059766400000171416,
+            "max_time": 0.06110864099991886,
+            "avg_time": 0.06032635966668446,
+            "std_time": 0.0006981926080753617,
+            "results_count": 84
+          },
+          "social_cities": {
+            "description": "Определение городов с наибольшим числом межгородских дружеских связей",
+            "iterations": 5,
+            "times": [
+              0.2204975459999332,
+              0.23820132499986357,
+              0.22429472699991493,
+              0.21723748900012652,
+              0.2171556219998365
+            ],
+            "min_time": 0.2171556219998365,
+            "max_time": 0.23820132499986357,
+            "avg_time": 0.22347734179993495,
+            "std_time": 0.008735600824225951,
+            "results_count": 5
+          },
+          "age_gap_analysis": {
+            "description": "Распределение дружеских связей по разнице возраста пользователей",
+            "iterations": 2,
+            "times": [
+              0.07194828299998335,
+              0.0714553469999828
+            ],
+            "min_time": 0.0714553469999828,
+            "max_time": 0.07194828299998335,
+            "avg_time": 0.07170181499998307,
+            "std_time": 0.0003485583882913641,
+            "results_count": 4
+          },
+          "network_growth": {
+            "description": "Анализ динамики роста социальной сети по кварталам",
+            "iterations": 5,
+            "times": [
+              6.462622793000037,
+              6.551974068999925,
+              6.552187590999893,
+              6.347609941999963,
+              6.542318452000018
+            ],
+            "min_time": 6.347609941999963,
+            "max_time": 6.552187590999893,
+            "avg_time": 6.491342569399967,
+            "std_time": 0.08868586378315844,
+            "results_count": 21
+          },
+          "age_clustering": {
+            "description": "Оценка коэффициента кластеризации пользователей по возрастным группам",
+            "iterations": 3,
+            "times": [
+              3.0125291199999538,
+              3.0982978810000077,
+              2.9658408230000077
+            ],
+            "min_time": 2.9658408230000077,
+            "max_time": 3.0982978810000077,
+            "avg_time": 3.025555941333323,
+            "std_time": 0.06718252458074557,
+            "results_count": 6
+          }
+        },
+        "neo4j": {
+          "simple_friends": {
+            "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)",
+            "iterations": 10,
+            "times": [
+              0.12383639700010463,
+              0.005923810000012963,
+              0.00620762000016839,
+              0.006245712000009007,
+              0.005894285000067612,
+              0.005781642000101783,
+              0.005377838999947926,
+              0.025993994000145904,
+              0.005381621999958952,
+              0.006735814999956347
+            ],
+            "min_time": 0.005377838999947926,
+            "max_time": 0.12383639700010463,
+            "avg_time": 0.01973787360004735,
+            "std_time": 0.037117476542811244,
+            "results_count": 13
+          },
+          "friends_of_friends": {
+            "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи",
+            "iterations": 20,
+            "times": [
+              0.4534810679999737,
+              0.06004594199998792,
+              0.03371253800014529,
+              0.05624365499988926,
+              0.0321401109999897,
+              0.058756542000082845,
+              0.030439572999966913,
+              0.07188639999981206,
+              0.026762395999867294,
+              0.028567094999971232,
+              0.06422648700004174,
+              0.08387677099995017,
+              0.029594442999950843,
+              0.07818630700012363,
+              0.0888717599998472,
+              0.029297865999978967,
+              0.07977272400012225,
+              0.029043448000038552,
+              0.0703283510001711,
+              0.026761609000004682
+            ],
+            "min_time": 0.026761609000004682,
+            "max_time": 0.4534810679999737,
+            "avg_time": 0.07159975429999577,
+            "std_time": 0.09259621890724051,
+            "results_count": 558
+          },
+          "mutual_friends": {
+            "description": "Поиск общих друзей для пары пользователей",
+            "iterations": 10,
+            "times": [
+              0.5541606100000536,
+              0.006104741999934049,
+              0.005422234999969078,
+              0.005289973999879294,
+              0.00525695999999698,
+              0.005640992999815353,
+              0.06647576500017749,
+              0.005844801999955962,
+              0.006995485000061308,
+              0.005701554999859582
+            ],
+            "min_time": 0.00525695999999698,
+            "max_time": 0.5541606100000536,
+            "avg_time": 0.06668931209997027,
+            "std_time": 0.17233948426714985,
+            "results_count": 0
+          },
+          "friend_recommendations": {
+            "description": "Рекомендации новых друзей на основе количества общих соседей",
+            "iterations": 6,
+            "times": [
+              0.6113693780000631,
+              0.07788353899991307,
+              0.00859940700001971,
+              0.008182838000038828,
+              0.008152036000183216,
+              0.07015418199989654
+            ],
+            "min_time": 0.008152036000183216,
+            "max_time": 0.6113693780000631,
+            "avg_time": 0.13072356333335242,
+            "std_time": 0.23767012244766095,
+            "results_count": 10
+          },
+          "shortest_path": {
+            "description": "Поиск кратчайшего пути между двумя пользователями в графе",
+            "iterations": 9,
+            "times": [
+              0.5064919939998163,
+              0.08742468300010842,
+              0.021389446000057433,
+              0.07729103800011217,
+              0.01780413699998462,
+              0.018930005000129313,
+              0.0770407879999766,
+              0.014998785999978281,
+              0.07645075100003851
+            ],
+            "min_time": 0.014998785999978281,
+            "max_time": 0.5064919939998163,
+            "avg_time": 0.09975795866668907,
+            "std_time": 0.15561333152722626,
+            "results_count": 1
+          },
+          "cohort_analysis": {
+            "description": "Когортный анализ формирования дружеских связей в первый год",
+            "iterations": 3,
+            "times": [
+              1.6449643450000622,
+              0.28077795000012884,
+              0.2699909990001288
+            ],
+            "min_time": 0.2699909990001288,
+            "max_time": 1.6449643450000622,
+            "avg_time": 0.7319110980001066,
+            "std_time": 0.7907457008867267,
+            "results_count": 48
+          },
+          "social_cities": {
+            "description": "Поиск городов с наибольшей межгородской социальной активностью",
+            "iterations": 5,
+            "times": [
+              0.45529440899986184,
+              0.2744321170000603,
+              0.2837311639998461,
+              0.27808408400005646,
+              0.2868188630000077
+            ],
+            "min_time": 0.2744321170000603,
+            "max_time": 0.45529440899986184,
+            "avg_time": 0.3156721273999665,
+            "std_time": 0.07819961156080017,
+            "results_count": 5
+          },
+          "age_gap_analysis": {
+            "description": "Распределение дружеских связей по возрастной разнице пользователей",
+            "iterations": 2,
+            "times": [
+              0.7068070370000896,
+              0.28139711699986947
+            ],
+            "min_time": 0.28139711699986947,
+            "max_time": 0.7068070370000896,
+            "avg_time": 0.49410207699997954,
+            "std_time": 0.30081023921618233,
+            "results_count": 4
+          },
+          "network_growth": {
+            "description": "Динамика роста количества дружеских связей во времени",
+            "iterations": 5,
+            "times": [
+              4.504525113999989,
+              5.335327541000197,
+              4.035939977999988,
+              3.984609060999901,
+              5.3692364659998475
+            ],
+            "min_time": 3.984609060999901,
+            "max_time": 5.3692364659998475,
+            "avg_time": 4.645927631999984,
+            "std_time": 0.6759936697836922,
+            "results_count": 20
+          },
+          "age_clustering": {
+            "description": "Коэффициент кластеризации пользователей, агрегированный по возрастным группам",
+            "iterations": 3,
+            "times": [
+              6.056372345999989,
+              5.660283751999941,
+              5.5029932580000605
+            ],
+            "min_time": 5.5029932580000605,
+            "max_time": 6.056372345999989,
+            "avg_time": 5.739883118666664,
+            "std_time": 0.2851475900989095,
+            "results_count": 6
+          }
+        },
+        "efficiency": {
+          "age_clustering": {
+            "efficiency_coefficient": 0.53,
+            "neo4j_faster_times": 0.5,
+            "improvement_percentage": -89.7,
+            "postgres_time_ms": 3025.56,
+            "neo4j_time_ms": 5739.88,
+            "significance": "высокая",
+            "result_count_pg": 6,
+            "result_count_neo": 6
+          },
+          "shortest_path": {
+            "efficiency_coefficient": 2.79,
+            "neo4j_faster_times": 2.8,
+            "improvement_percentage": 64.2,
+            "postgres_time_ms": 278.6,
+            "neo4j_time_ms": 99.76,
+            "significance": "средняя",
+            "result_count_pg": 1,
+            "result_count_neo": 1
+          },
+          "simple_friends": {
+            "efficiency_coefficient": 0.03,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -3057.3,
+            "postgres_time_ms": 0.63,
+            "neo4j_time_ms": 19.74,
+            "significance": "средняя",
+            "result_count_pg": 13,
+            "result_count_neo": 13
+          },
+          "age_gap_analysis": {
+            "efficiency_coefficient": 0.15,
+            "neo4j_faster_times": 0.1,
+            "improvement_percentage": -589.1,
+            "postgres_time_ms": 71.7,
+            "neo4j_time_ms": 494.1,
+            "significance": "высокая",
+            "result_count_pg": 4,
+            "result_count_neo": 4
+          },
+          "mutual_friends": {
+            "efficiency_coefficient": 0.01,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -10556.8,
+            "postgres_time_ms": 0.63,
+            "neo4j_time_ms": 66.69,
+            "significance": "средняя",
+            "result_count_pg": 0,
+            "result_count_neo": 0
+          },
+          "social_cities": {
+            "efficiency_coefficient": 0.71,
+            "neo4j_faster_times": 0.7,
+            "improvement_percentage": -41.3,
+            "postgres_time_ms": 223.48,
+            "neo4j_time_ms": 315.67,
+            "significance": "высокая",
+            "result_count_pg": 5,
+            "result_count_neo": 5
+          },
+          "friends_of_friends": {
+            "efficiency_coefficient": 0.02,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -4963.6,
+            "postgres_time_ms": 1.41,
+            "neo4j_time_ms": 71.6,
+            "significance": "средняя",
+            "result_count_pg": 558,
+            "result_count_neo": 558
+          },
+          "friend_recommendations": {
+            "efficiency_coefficient": 0.01,
+            "neo4j_faster_times": 0.0,
+            "improvement_percentage": -10644.1,
+            "postgres_time_ms": 1.22,
+            "neo4j_time_ms": 130.72,
+            "significance": "средняя",
+            "result_count_pg": 10,
+            "result_count_neo": 10
+          },
+          "network_growth": {
+            "efficiency_coefficient": 1.4,
+            "neo4j_faster_times": 1.4,
+            "improvement_percentage": 28.4,
+            "postgres_time_ms": 6491.34,
+            "neo4j_time_ms": 4645.93,
+            "significance": "высокая",
+            "result_count_pg": 21,
+            "result_count_neo": 20
+          },
+          "cohort_analysis": {
+            "efficiency_coefficient": 0.08,
+            "neo4j_faster_times": 0.1,
+            "improvement_percentage": -1113.3,
+            "postgres_time_ms": 60.33,
+            "neo4j_time_ms": 731.91,
+            "significance": "средняя",
+            "result_count_pg": 84,
+            "result_count_neo": 48
+          },
+          "_summary": {
+            "average_efficiency": 0.57,
+            "median_efficiency": 0.11,
+            "max_efficiency": 2.79,
+            "min_efficiency": 0.01,
+            "neo4j_wins_count": 2,
+            "postgres_wins_count": 8,
+            "total_comparisons": 10,
+            "overall_winner": "PostgreSQL",
+            "performance_advantage": "42.7%"
+          }
+        },
+        "metadata": {
+          "dataset": "very-small",
+          "docker_config": "poor",
+          "timestamp": 1767104794.8695102,
+          "database_metrics": {
+            "postgres": {
+              "users_count": 20000,
+              "friendships_count": 199327,
+              "users_with_friends": 16605,
+              "unique_friends": 19999,
+              "avg_friends_per_user": 1.0,
+              "age_distribution": {
+                "min": 18,
+                "max": 69,
+                "avg": 43.51,
+                "median": 43.0
+              }
+            },
+            "neo4j": {
+              "users_count": 20000,
+              "friendships_count": 199327,
+              "avg_friends_per_user": 19.932699999999993,
+              "min_friends": 9,
+              "max_friends": 1123
+            }
+          },
+          "dataset_size": {
+            "users_count": 20000,
+            "friendships_count": 199327,
+            "avg_friends_per_user": 1.0,
+            "source": "postgres"
+          },
+          "config": {
+            "query_runs": {
+              "simple_friends": 10,
+              "friends_of_friends": 20,
+              "mutual_friends": 10,
+              "friend_recommendations": 6,
+              "shortest_path": 9,
+              "cohort_analysis": 3,
+              "social_cities": 5,
+              "age_gap_analysis": 2,
+              "network_growth": 5,
+              "age_clustering": 3
+            },
+            "dataset_size_config": {
+              "users": 20000,
+              "avg_friends": 1.0,
+              "iterations": 1
+            }
+          }
+        }
+      },
+      "end_time": 1767104898.1808078,
+      "duration": 161.80058646202087
     }
   ],
-  "timestamp": "2025-12-29T20:54:48.207304"
+  "timestamp": "2025-12-30T17:28:18.180984"
 }

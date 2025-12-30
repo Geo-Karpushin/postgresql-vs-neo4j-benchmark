@@ -12,7 +12,7 @@ CHARTS_DIR.mkdir(exist_ok=True)
 
 DEFAULT_USER_COUNT = {
     "super-tiny": 5_000,
-    "tiny": 10_000,
+    "tiny": 10_000, 
     "very-small": 20_000,
     "small": 50_000,
     "medium": 500_000,
@@ -336,7 +336,7 @@ def plot_charts(mean_data, user_counts, out_dir=CHARTS_DIR):
         print("Создан новый график:", out_dir / f"{q}.png")
 
 def main():
-    folder = "results/medium"
+    folder = "results/poor"
     print(f"📂 Загружаю benchmark-файлы из: {folder}")
 
     data, user_counts = load_benchmarks(folder)

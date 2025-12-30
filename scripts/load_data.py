@@ -245,7 +245,16 @@ if __name__ == "__main__":
         sys.exit(1)
     
     size = sys.argv[1]
-    valid_sizes = ["tiny", "small", "medium", "large", "xlarge", "super-tiny"]
+    valid_sizes = [
+        "super-tiny",
+        "tiny", 
+        "very-small",
+        "small",
+        "medium",
+        "large",
+        "x-large",
+        "xx-large"
+    ]
     
     if size not in valid_sizes:
         logger.error(f"❌ Неверный размер датасета. Доступные: {', '.join(valid_sizes)}")
