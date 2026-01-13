@@ -1,9 +1,10 @@
 POSTGRES_QUERIES = {
     "simple_friends": {
         "query": """
-            SELECT friend_id FROM friendships WHERE user_id = %s
-            UNION
-            SELECT user_id FROM friendships WHERE friend_id = %s
+            SELECT DISTINCT 
+                CASE WHEN user_id = %s THEN friend_id ELSE user_id END AS friend_id
+            FROM friendships 
+            WHERE user_id = %s OR friend_id = %s
         """,
         "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)"
     },
@@ -11,26 +12,25 @@ POSTGRES_QUERIES = {
     "friends_of_friends": {
         "query": """
             WITH direct_friends AS (
-                SELECT friend_id AS friend FROM friendships WHERE user_id = %s
-                UNION
-                SELECT user_id AS friend FROM friendships WHERE friend_id = %s
+                SELECT DISTINCT 
+                    CASE WHEN user_id = %s THEN friend_id ELSE user_id END AS friend
+                FROM friendships 
+                WHERE user_id = %s OR friend_id = %s
             )
             SELECT DISTINCT
                 CASE 
-                    WHEN fe.user_id IN (SELECT friend FROM direct_friends) 
-                    THEN fe.friend_id 
-                    ELSE fe.user_id 
+                    WHEN f.user_id = df.friend THEN f.friend_id 
+                    ELSE f.user_id 
                 END AS fof
             FROM direct_friends df
-            JOIN friendships fe ON 
-                fe.user_id = df.friend OR fe.friend_id = df.friend
+            JOIN friendships f ON f.user_id = df.friend OR f.friend_id = df.friend
             WHERE CASE 
-                    WHEN fe.user_id = df.friend THEN fe.friend_id 
-                    ELSE fe.user_id 
+                    WHEN f.user_id = df.friend THEN f.friend_id 
+                    ELSE f.user_id 
                 END != %s
-            AND CASE 
-                    WHEN fe.user_id = df.friend THEN fe.friend_id 
-                    ELSE fe.user_id 
+                AND CASE 
+                    WHEN f.user_id = df.friend THEN f.friend_id 
+                    ELSE f.user_id 
                 END NOT IN (SELECT friend FROM direct_friends)
         """,
         "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи"
@@ -39,14 +39,16 @@ POSTGRES_QUERIES = {
     "mutual_friends": {
         "query": """
             WITH a_friends AS (
-                SELECT friend_id AS friend FROM friendships WHERE user_id = %s
-                UNION
-                SELECT user_id AS friend FROM friendships WHERE friend_id = %s
+                SELECT DISTINCT 
+                    CASE WHEN user_id = %s THEN friend_id ELSE user_id END AS friend
+                FROM friendships 
+                WHERE user_id = %s OR friend_id = %s
             ),
             b_friends AS (
-                SELECT friend_id AS friend FROM friendships WHERE user_id = %s
-                UNION
-                SELECT user_id AS friend FROM friendships WHERE friend_id = %s
+                SELECT DISTINCT 
+                    CASE WHEN user_id = %s THEN friend_id ELSE user_id END AS friend
+                FROM friendships 
+                WHERE user_id = %s OR friend_id = %s
             )
             SELECT a.friend AS mutual
             FROM a_friends a
@@ -63,18 +65,15 @@ POSTGRES_QUERIES = {
                 SELECT user_id AS fid FROM friendships WHERE friend_id = %s
             ),
             fof AS (
-                SELECT f2.friend_id AS cand
+                SELECT 
+                    CASE WHEN f2.user_id = f1.fid THEN f2.friend_id ELSE f2.user_id END AS cand
                 FROM all_friends f1
-                JOIN friendships f2 ON f1.fid = f2.user_id
-                UNION ALL
-                SELECT f2.user_id AS cand
-                FROM all_friends f1
-                JOIN friendships f2 ON f1.fid = f2.friend_id
+                JOIN friendships f2 ON f1.fid = f2.user_id OR f1.fid = f2.friend_id
             )
             SELECT cand, COUNT(*) AS common_friends
             FROM fof
             WHERE cand <> %s
-              AND cand NOT IN (SELECT fid FROM all_friends)
+            AND cand NOT IN (SELECT fid FROM all_friends)
             GROUP BY cand
             ORDER BY common_friends DESC
             LIMIT 10
@@ -84,94 +83,90 @@ POSTGRES_QUERIES = {
 
     "shortest_path": {
         "query": """
-            WITH RECURSIVE
-            edges AS (
-                SELECT user_id AS src, friend_id AS dst FROM friendships
-                UNION ALL
-                SELECT friend_id AS src, user_id AS dst FROM friendships
-            ),
-            forward AS (
-                SELECT 0 AS level, %s::bigint AS node
-                UNION ALL
-                SELECT f.level + 1, e.dst
-                FROM forward f
-                JOIN edges e ON e.src = f.node
-                WHERE f.level < 2
-            ),
-            backward AS (
-                SELECT 0 AS level, %s::bigint AS node
-                UNION ALL
-                SELECT b.level + 1, e.dst
-                FROM backward b
-                JOIN edges e ON e.src = b.node
-                WHERE b.level < 2
-            )
-            SELECT
-                fw.node AS meeting_node,
-                fw.level + bw.level AS depth
-            FROM forward fw
-            JOIN backward bw ON fw.node = bw.node
-            ORDER BY depth
-            LIMIT 1
+            WITH RECURSIVE 
+                forward(level, node, path) AS (
+                    SELECT 0, %s, CAST(%s AS TEXT)
+                    UNION ALL
+                    SELECT level + 1, f.friend_id, fw.path || ',' || f.friend_id
+                    FROM forward fw
+                    JOIN friendships f ON f.user_id = fw.node
+                    WHERE level < 4
+                ),
+                backward(level, node, path) AS (
+                    SELECT 0, %s, CAST(%s AS TEXT)
+                    UNION ALL
+                    SELECT level + 1, f.user_id, bw.path || ',' || f.user_id
+                    FROM backward bw
+                    JOIN friendships f ON f.friend_id = bw.node
+                    WHERE level < 4
+                ),
+                combined_paths AS (
+                    SELECT 
+                        fw.path || ',' || bw.path AS full_path,
+                        fw.level + bw.level AS depth
+                    FROM forward fw
+                    JOIN backward bw ON fw.node = bw.node
+                    WHERE fw.level + bw.level <= 4
+                    ORDER BY fw.level + bw.level
+                    LIMIT 1
+                )
+            SELECT 
+                CASE 
+                    WHEN full_path IS NOT NULL THEN
+                        -- Разбиваем путь на массив ID
+                        CASE 
+                            WHEN depth = 0 THEN '[' || REPLACE(full_path, ',', ',') || ']'
+                            ELSE '[' || full_path || ']'
+                        END
+                    ELSE '[]'
+                END AS path,
+                COALESCE(depth, -1) AS depth
+            FROM combined_paths;
         """,
-        "description": "Поиск кратчайшего пути между двумя пользователями (ограничение по глубине)"
+        "description": "Поиск кратчайшего пути между двумя пользователями (до глубины 4)"
     }
 }
-
 
 NEO4J_QUERIES = {
     "simple_friends": {
         "query": """
-            MATCH (u:User)
-            WHERE u.user_id = $user_id   // ← index seek
-            MATCH (u)-[:FRIENDS_WITH]-(f:User)
-            RETURN f.user_id AS friend;
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(friend:User)
+            RETURN friend.user_id AS friend_id
         """,
         "description": "Получение всех прямых друзей пользователя (1-hop, ненаправленный граф)"
     },
 
     "friends_of_friends": {
         "query": """
-            MATCH (u:User)
-            WHERE u.user_id = $user_id   // index
-            MATCH (u)-[:FRIENDS_WITH]-(f1:User)
-            MATCH (f1)-[:FRIENDS_WITH]-(f2:User)
-            WHERE f2.user_id <> $user_id
-            AND NOT EXISTS {
-            MATCH (u)-[:FRIENDS_WITH]-(f2)
-            }
-            RETURN DISTINCT f2.user_id AS fof;
+            MATCH (u:User {user_id: $user_id})-[:FRIENDS_WITH]-(f1:User)
+            WITH u, collect(f1) AS direct_friends
+            UNWIND direct_friends AS friend
+            MATCH (friend)-[:FRIENDS_WITH]-(f2:User)
+            WHERE f2 <> u AND NOT f2 IN direct_friends
+            RETURN DISTINCT f2.user_id AS fof
         """,
         "description": "Поиск друзей друзей пользователя (2-hop), исключая прямые связи"
     },
 
     "mutual_friends": {
         "query": """
-            MATCH (a:User)
-            WHERE a.user_id = $userA     // index
-            MATCH (b:User)
-            WHERE b.user_id = $userB     // index
-            MATCH (a)-[:FRIENDS_WITH]-(f:User)-[:FRIENDS_WITH]-(b)
-            RETURN f.user_id AS mutual;
+            MATCH (a:User {user_id: $userA})-[:FRIENDS_WITH]-(friend:User)-[:FRIENDS_WITH]-(b:User {user_id: $userB})
+            RETURN friend.user_id AS mutual
         """,
         "description": "Поиск общих друзей для пары пользователей"
     },
 
     "friend_recommendations": {
         "query": """
-            MATCH (u:User)
-            WHERE u.user_id = $user_id   // index seek
-
-            MATCH (u)-[:FRIENDS_WITH]-(common:User)
-            MATCH (common)-[:FRIENDS_WITH]-(rec:User)
-            WHERE rec.user_id <> $user_id
-            AND NOT EXISTS {
-                MATCH (u)-[:FRIENDS_WITH]-(rec)
-            }
-            WITH rec, COUNT(DISTINCT common) AS common_friends
+            MATCH (me:User {user_id: $user_id})-[:FRIENDS_WITH]-(friend:User)
+            WITH me, collect(friend) AS my_friends
+            UNWIND my_friends AS friend
+            MATCH (friend)-[:FRIENDS_WITH]-(recommendation:User)
+            WHERE recommendation <> me AND NOT recommendation IN my_friends
+            WITH recommendation, count(friend) AS common_friends
             ORDER BY common_friends DESC
             LIMIT 10
-            RETURN rec.user_id AS candidate, common_friends;
+            RETURN recommendation.user_id AS candidate, common_friends
         """,
         "description": "Рекомендации новых друзей на основе количества общих соседей"
     },
@@ -180,66 +175,44 @@ NEO4J_QUERIES = {
         "query": """
             MATCH (start:User {user_id: $userA})
             MATCH (end:User {user_id: $userB})
-            CALL apoc.path.expandConfig(start, {
-                relationshipFilter: 'FRIENDS_WITH',
-                minLevel: 1,
-                maxLevel: 4,
-                terminatorNodes: [end],
-                uniqueness: 'NODE_GLOBAL'
-            }) YIELD path
-            RETURN [n IN nodes(path) | n.user_id] as path, 
-                length(path) as depth
+            MATCH path = shortestPath((start)-[:FRIENDS_WITH*..4]-(end))
+            RETURN [node IN nodes(path) | node.user_id] AS path, 
+                   length(path) AS depth
             LIMIT 1
         """,
-        "description": "Поиск кратчайшего пути между двумя пользователями в графе"
+        "description": "Поиск кратчайшего пути между двумя пользователями в графе (глубина до 4)"
     }
 }
-
 
 POSTGRES_ANALYTICAL_QUERIES = {
     "cohort_analysis": {
         "query": """
-            WITH cohort_data AS (
-                SELECT 
-                    user_id,
-                    DATE_TRUNC('year', registration_date) as cohort,
-                    registration_date as reg_date,
-                    registration_date + INTERVAL '1 year' as cohort_end
-                FROM users
-            )
             SELECT 
-                c.cohort,
-                DATE_TRUNC('month', f.since) as month,
-                COUNT(DISTINCT f.user_id) as active_users,
-                COUNT(*) as friendships_formed
-            FROM cohort_data c
-            JOIN friendships f ON f.user_id = c.user_id 
-                AND f.since BETWEEN c.reg_date AND c.cohort_end
-            GROUP BY c.cohort, DATE_TRUNC('month', f.since)
+                EXTRACT(YEAR FROM u.registration_date) as cohort_year,
+                EXTRACT(MONTH FROM f.since) as friendship_month,
+                COUNT(DISTINCT u.user_id) as users_count,
+                COUNT(*) as friendships_count
+            FROM users u
+            JOIN friendships f ON u.user_id = f.user_id
+            WHERE EXTRACT(YEAR FROM f.since) = EXTRACT(YEAR FROM u.registration_date)
+            GROUP BY EXTRACT(YEAR FROM u.registration_date), EXTRACT(MONTH FROM f.since)
+            ORDER BY cohort_year, friendship_month
         """,
-        "description": "Когортный анализ формирования дружеских связей в первый год после регистрации"
+        "description": "Когортный анализ формирования дружеских связей в первый год"
     },
 
     "social_cities": {
         "query": """
-            WITH intercity_friendships AS (
-                SELECT DISTINCT
-                    LEAST(u1.user_id, u2.user_id) AS user1,
-                    GREATEST(u1.user_id, u2.user_id) AS user2,
-                    u1.city AS user_city,
-                    u2.city AS friend_city
-                FROM friendships f
-                JOIN users u1 ON f.user_id = u1.user_id
-                JOIN users u2 ON f.friend_id = u2.user_id
-                WHERE u1.city <> u2.city
-            )
-            SELECT
-                user_city,
-                COUNT(*) AS intercity_friendships_count,
-                COUNT(DISTINCT friend_city) AS unique_cities_connected
-            FROM intercity_friendships
-            GROUP BY user_city
-            ORDER BY intercity_friendships_count DESC
+            SELECT 
+                u1.city as city,
+                COUNT(*) as connections_count,
+                COUNT(DISTINCT u2.city) as unique_cities
+            FROM friendships f
+            JOIN users u1 ON f.user_id = u1.user_id
+            JOIN users u2 ON f.friend_id = u2.user_id
+            WHERE u1.city <> u2.city
+            GROUP BY u1.city
+            ORDER BY connections_count DESC
             LIMIT 5
         """,
         "description": "Определение городов с наибольшим числом межгородских дружеских связей"
@@ -247,138 +220,87 @@ POSTGRES_ANALYTICAL_QUERIES = {
 
     "age_gap_analysis": {
         "query": """
-            WITH age_gaps AS (
-                SELECT
-                    ABS(u1.age - u2.age) AS age_difference
+            SELECT 
+                age_category,
+                COUNT(*) as count
+            FROM (
+                SELECT 
+                    CASE 
+                        WHEN ABS(u1.age - u2.age) <= 1 THEN '0-1 год'
+                        WHEN ABS(u1.age - u2.age) <= 5 THEN '2-5 лет'
+                        WHEN ABS(u1.age - u2.age) <= 10 THEN '6-10 лет'
+                        ELSE '>10 лет'
+                    END as age_category
                 FROM friendships f
                 JOIN users u1 ON f.user_id = u1.user_id
                 JOIN users u2 ON f.friend_id = u2.user_id
-                WHERE u1.user_id < u2.user_id
-            ),
-            categorized AS (
-                SELECT
-                    CASE
-                        WHEN age_difference <= 1 THEN '0-1 год'
-                        WHEN age_difference <= 5 THEN '2-5 лет'
-                        WHEN age_difference <= 10 THEN '6-10 лет'
-                        ELSE '>10 лет'
-                    END AS age_gap_category,
-                    CASE
-                        WHEN age_difference <= 1 THEN 1
-                        WHEN age_difference <= 5 THEN 2
-                        WHEN age_difference <= 10 THEN 3
-                        ELSE 4
-                    END AS sort_order,
-                    age_difference
-                FROM age_gaps
-            )
-            SELECT
-                age_gap_category,
-                COUNT(*) AS friendships_count,
-                ROUND(
-                    100.0 * COUNT(*) / SUM(COUNT(*)) OVER (),
-                    2
-                ) AS percentage
-            FROM categorized
-            GROUP BY age_gap_category, sort_order
-            ORDER BY sort_order
+                WHERE u1.age IS NOT NULL AND u2.age IS NOT NULL
+            ) t
+            GROUP BY age_category
+            ORDER BY 
+                CASE age_category
+                    WHEN '0-1 год' THEN 1
+                    WHEN '2-5 лет' THEN 2
+                    WHEN '6-10 лет' THEN 3
+                    ELSE 4
+                END
         """,
         "description": "Распределение дружеских связей по разнице возраста пользователей"
     },
 
     "network_growth": {
         "query": """
-            WITH quarterly_dates AS (
-                SELECT generate_series(
-                    date_trunc('quarter', CURRENT_DATE - INTERVAL '5 years'),
-                    date_trunc('quarter', CURRENT_DATE),
-                    INTERVAL '3 months'
-                ) AS quarter_end
-            ),
-            cumulative AS (
-                SELECT
-                    q.quarter_end,
-                    COUNT(DISTINCT
-                        LEAST(f.user_id, f.friend_id)::text || '-' ||
-                        GREATEST(f.user_id, f.friend_id)::text
-                    ) AS cumulative_friendships
-                FROM quarterly_dates q
-                LEFT JOIN friendships f
-                ON f.since <= q.quarter_end
-                GROUP BY q.quarter_end
-            )
-            SELECT
-                to_char(quarter_end, 'YYYY-"Q"Q') AS quarter,
-                cumulative_friendships,
-                cumulative_friendships -
-                LAG(cumulative_friendships, 1, 0)
-                OVER (ORDER BY quarter_end) AS new_friendships_this_quarter
-            FROM cumulative
-            ORDER BY quarter_end
+            SELECT 
+                EXTRACT(YEAR FROM since) as year,
+                EXTRACT(MONTH FROM since) as month,
+                COUNT(*) as new_friendships
+            FROM friendships
+            WHERE since >= CURRENT_DATE - INTERVAL '2 years'
+            GROUP BY EXTRACT(YEAR FROM since), EXTRACT(MONTH FROM since)
+            ORDER BY year, month
+            LIMIT 12
         """,
-        "description": "Анализ динамики роста социальной сети по кварталам"
+        "description": "Анализ динамики роста социальной сети по месяцам за 2 года"
     },
 
     "age_clustering": {
         "query": """
-            WITH edges AS (
-                SELECT user_id AS a, friend_id AS b FROM friendships
-                UNION ALL
-                SELECT friend_id AS a, user_id AS b FROM friendships
-            ),
-            user_degrees AS (
-                SELECT
+            WITH user_stats AS (
+                SELECT 
                     u.user_id,
-                    width_bucket(u.age, 10, 80, 7) AS age_bucket,
-                    COUNT(DISTINCT e.b) AS degree
+                    u.age,
+                    COUNT(DISTINCT CASE WHEN f.user_id = u.user_id THEN f.friend_id END) as degree
                 FROM users u
-                LEFT JOIN edges e ON e.a = u.user_id
-                GROUP BY u.user_id, age_bucket
-            ),
-            triangles AS (
-                SELECT
-                    e1.a AS user_id,
-                    COUNT(*) AS triangle_count
-                FROM edges e1
-                JOIN edges e2 ON e1.b = e2.a
-                JOIN edges e3 ON e2.b = e3.b
-                            AND e3.a = e1.a
-                WHERE e1.a < e1.b
-                GROUP BY e1.a
+                LEFT JOIN friendships f ON u.user_id = f.user_id
+                WHERE u.age IS NOT NULL
+                GROUP BY u.user_id, u.age
             )
-            SELECT
-                age_bucket * 10 + 10 AS age_group_start,
-                COUNT(*) AS users_count,
-                AVG(
-                    COALESCE(t.triangle_count, 0) * 2.0 /
-                    (d.degree * (d.degree - 1))
-                ) AS avg_clustering_coefficient
-            FROM user_degrees d
-            LEFT JOIN triangles t ON d.user_id = t.user_id
-            WHERE d.degree >= 2
-            GROUP BY age_bucket
-            ORDER BY age_bucket
+            SELECT 
+                FLOOR(us.age / 10) * 10 as age_group,
+                COUNT(DISTINCT us.user_id) as users_count,
+                AVG(CASE WHEN us.degree >= 2 THEN 
+                    1.0 * (us.degree - 1) / us.degree 
+                    ELSE 0 END) as clustering_estimate
+            FROM user_stats us
+            GROUP BY FLOOR(us.age / 10) * 10
+            HAVING COUNT(DISTINCT us.user_id) >= 2
+            ORDER BY age_group
         """,
         "description": "Оценка коэффициента кластеризации пользователей по возрастным группам"
     }
 }
 
-
 NEO4J_ANALYTICAL_QUERIES = {
     "cohort_analysis": {
         "query": """
-            MATCH (u:User)-[r:FRIENDS_WITH]-(f:User)
-            WHERE u.user_id < f.user_id
-                AND r.since >= u.registration_date
-                AND r.since <  u.registration_date + duration({years: 1})
-            WITH
-                u.registration_date.year AS cohortYear,
-                r.since.month AS friendshipMonth
-            RETURN
-                cohortYear,
-                friendshipMonth,
-                count(*) AS friendshipsCount
-            ORDER BY cohortYear, friendshipMonth
+            MATCH (u:User)-[r:FRIENDS_WITH]-(:User)
+            WHERE date(r.since).year = date(u.registration_date).year
+            RETURN 
+                date(u.registration_date).year AS cohort_year,
+                date(r.since).month AS friendship_month,
+                count(DISTINCT u) AS users_count,
+                count(r) AS friendships_count
+            ORDER BY cohort_year, friendship_month
         """,
         "description": "Когортный анализ формирования дружеских связей в первый год"
     },
@@ -387,13 +309,11 @@ NEO4J_ANALYTICAL_QUERIES = {
         "query": """
             MATCH (u1:User)-[:FRIENDS_WITH]-(u2:User)
             WHERE u1.city <> u2.city
-              AND u1.user_id < u2.user_id
-            WITH u1.city AS userCity, u2.city AS friendCity
-            RETURN
-                userCity,
-                COUNT(*) AS intercityFriendshipsCount,
-                COUNT(DISTINCT friendCity) AS uniqueCitiesConnected
-            ORDER BY intercityFriendshipsCount DESC
+            RETURN 
+                u1.city AS city,
+                count(*) AS connections_count,
+                count(DISTINCT u2.city) AS unique_cities
+            ORDER BY connections_count DESC
             LIMIT 5
         """,
         "description": "Поиск городов с наибольшей межгородской социальной активностью"
@@ -402,25 +322,19 @@ NEO4J_ANALYTICAL_QUERIES = {
     "age_gap_analysis": {
         "query": """
             MATCH (u1:User)-[:FRIENDS_WITH]-(u2:User)
-            WHERE u1.user_id < u2.user_id
-            WITH abs(u1.age - u2.age) AS ageDifference
-            WITH
-                CASE
-                    WHEN ageDifference <= 1 THEN '0-1 год'
-                    WHEN ageDifference <= 5 THEN '2-5 лет'
-                    WHEN ageDifference <= 10 THEN '6-10 лет'
+            WHERE u1.age IS NOT NULL AND u2.age IS NOT NULL
+            WITH 
+                CASE 
+                    WHEN abs(u1.age - u2.age) <= 1 THEN '0-1 год'
+                    WHEN abs(u1.age - u2.age) <= 5 THEN '2-5 лет'
+                    WHEN abs(u1.age - u2.age) <= 10 THEN '6-10 лет'
                     ELSE '>10 лет'
-                END AS category
-            WITH category, COUNT(*) AS friendshipsCount
-            WITH collect({cat: category, cnt: friendshipsCount}) AS data,
-                reduce(total = 0, x IN collect({cat: category, cnt: friendshipsCount}) | total + x.cnt) AS totalCount
-            UNWIND data AS d
-            RETURN
-                d.cat AS category,
-                d.cnt AS friendshipsCount,
-                round(100.0 * d.cnt / totalCount, 2) AS percentage
-            ORDER BY
-                CASE d.cat
+                END AS age_category
+            RETURN 
+                age_category,
+                count(*) AS count
+            ORDER BY 
+                CASE age_category
                     WHEN '0-1 год' THEN 1
                     WHEN '2-5 лет' THEN 2
                     WHEN '6-10 лет' THEN 3
@@ -432,52 +346,33 @@ NEO4J_ANALYTICAL_QUERIES = {
 
     "network_growth": {
         "query": """
-            WITH range(0, 19) as quarters
-            UNWIND quarters as q
-            WITH date() - duration({months: (19 - q) * 3}) as quarter_end
-            MATCH (u1:User)-[r:FRIENDS_WITH]-(u2:User)
-            WHERE r.since <= quarter_end
-            AND u1.user_id < u2.user_id
-            WITH quarter_end, count(*) as cumulative_friendships
-            ORDER BY quarter_end
-            WITH collect({q: quarter_end, c: cumulative_friendships}) as data
-            UNWIND range(0, size(data)-1) as idx
+            MATCH ()-[r:FRIENDS_WITH]-()
+            WHERE r.since IS NOT NULL
+            AND r.since.year >= date().year - 2
             RETURN 
-                toString(data[idx].q.year) + '-Q' + 
-                toString(data[idx].q.quarter) as quarter,
-                data[idx].c as cumulative_friendships,
-                data[idx].c - coalesce(data[idx-1].c, 0) as new_friendships_this_quarter
-            ORDER BY quarter
+                r.since.year AS year,
+                r.since.month AS month,
+                count(r) AS new_friendships
+            ORDER BY year, month
+            LIMIT 12
         """,
-        "description": "Динамика роста количества дружеских связей во времени"
+        "description": "Динамика роста количества дружеских связей по месяцам за 2 года"
     },
 
     "age_clustering": {
         "query": """
             MATCH (u:User)
             WHERE u.age IS NOT NULL
-            WITH u, toInteger(floor(u.age / 10) * 10) AS ageGroupStart
-            MATCH (u)-[:FRIENDS_WITH]-(n:User)
-            WITH u, ageGroupStart, collect(DISTINCT n) AS neighbors
-            WHERE size(neighbors) >= 2
-            WITH u, ageGroupStart, neighbors, size(neighbors) AS k
-            CALL (neighbors) {
-                UNWIND neighbors AS n1
-                MATCH (n1)-[:FRIENDS_WITH]-(n2:User)
-                WHERE n2 IN neighbors AND n1.user_id < n2.user_id
-                RETURN COUNT(*) AS edgeCount
-            }
-            WITH ageGroupStart,
-                CASE WHEN k >= 2 THEN 2.0 * edgeCount / (k * (k - 1)) ELSE 0 END AS clusteringCoefficient
-            WITH ageGroupStart,
-                toString(ageGroupStart) + '-' + toString(ageGroupStart + 9) AS ageGroup,
-                clusteringCoefficient
-            RETURN
-                ageGroup,
-                count(*) AS usersCount,
-                avg(clusteringCoefficient) AS avgClusteringCoefficient
-            ORDER BY ageGroup
+            WITH u, toInteger(floor(u.age / 10)) * 10 AS age_group
+            OPTIONAL MATCH (u)-[:FRIENDS_WITH]-(friend:User)
+            WITH age_group, u, count(friend) AS degree
+            WHERE degree >= 2
+            RETURN 
+                age_group,
+                count(DISTINCT u) AS users_count,
+                avg(1.0 * (degree - 1) / degree) AS clustering_estimate
+            ORDER BY age_group
         """,
-        "description": "Коэффициент кластеризации пользователей, агрегированный по возрастным группам"
+        "description": "Коэффициент кластеризации пользователей по возрастным группам"
     }
 }

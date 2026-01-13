@@ -45,7 +45,7 @@ CONFIGS = ["poor", "medium", "rich"]
 DATASETS_CONFIG = {
     "super-tiny": {
         "users": 5_000,
-        "avg_friends": 25,
+        "avg_friends": 5,
         "iterations": 3,
         "query_runs": {
             "simple_friends": 50,
@@ -79,7 +79,7 @@ DATASETS_CONFIG = {
     },
     "very-small": {
         "users": 20_000,
-        "avg_friends": 20,
+        "avg_friends": 500,
         "iterations": 3,
         "query_runs": {
             "simple_friends": 30,
@@ -90,8 +90,8 @@ DATASETS_CONFIG = {
             "cohort_analysis": 6,
             "social_cities": 6,
             "age_gap_analysis": 6,
-            "network_growth": 2,
-            "age_clustering": 2
+            "network_growth": 4,
+            "age_clustering": 4
         }
     },
     "small": {
@@ -112,8 +112,8 @@ DATASETS_CONFIG = {
         }
     },
     "medium": {
-        "users": 500_000,
-        "avg_friends": 18,
+        "users": 100_000,
+        "avg_friends": 50,
         "iterations": 2,
         "query_runs": {
             "simple_friends": 20,
@@ -129,7 +129,7 @@ DATASETS_CONFIG = {
         }
     },
     "large": {
-        "users": 2_000_000,
+        "users": 250_000,
         "avg_friends": 15,
         "iterations": 1,
         "query_runs": {
@@ -146,7 +146,7 @@ DATASETS_CONFIG = {
         }
     },
     "x-large": {
-        "users": 5_000_000,
+        "users": 500_000,
         "avg_friends": 12,
         "iterations": 1,
         "query_runs": {
@@ -163,20 +163,20 @@ DATASETS_CONFIG = {
         }
     },
     "xx-large": {
-        "users": 10_000_000,
-        "avg_friends": 10,
+        "users": 1_000_000,
+        "avg_friends": 100,
         "iterations": 1,
         "query_runs": {
-            "simple_friends": 8,
-            "friends_of_friends": 15,
-            "mutual_friends": 8,
-            "friend_recommendations": 6,
-            "shortest_path": 2,
-            "cohort_analysis": 2,
-            "social_cities": 2,
-            "age_gap_analysis": 2,
-            "network_growth": 2,
-            "age_clustering": 2
+            "simple_friends": 5,
+            "friends_of_friends": 5,
+            "mutual_friends": 5,
+            "friend_recommendations": 5,
+            "shortest_path": 5,
+            "cohort_analysis": 5,
+            "social_cities": 5,
+            "age_gap_analysis": 5,
+            "network_growth": 5,
+            "age_clustering": 5
         }
     }
 }
@@ -727,41 +727,41 @@ class AdaptiveTestingManager:
         adaptive_runs = self.query_manager.get_adaptive_config(size, previous_size)
         result["adaptations"]["query_runs"] = adaptive_runs
         
-        # Шаг 1: Очистка
-        if not self.cleanup_databases(infrastructure_config):
-            result["status"] = "cleanup_failed"
-            result["errors"].append("Ошибка очистки баз данных")
-            return result
+        # # Шаг 1: Очистка
+        # if not self.cleanup_databases(infrastructure_config):
+        #     result["status"] = "cleanup_failed"
+        #     result["errors"].append("Ошибка очистки баз данных")
+        #     return result
         
-        # Шаг 2: Инициализация
-        if not self.initialize_databases(infrastructure_config):
-            result["status"] = "init_failed"
-            result["errors"].append("Ошибка инициализации схем")
-            return result
+        # # Шаг 2: Инициализация
+        # if not self.initialize_databases(infrastructure_config):
+        #     result["status"] = "init_failed"
+        #     result["errors"].append("Ошибка инициализации схем")
+        #     return result
         
-        # Шаг 3: Генерация
-        if not self.generate_dataset(size):
-            result["status"] = "generate_failed"
-            result["errors"].append("Ошибка генерации датасета")
-            return result
+        # # Шаг 3: Генерация
+        # if not self.generate_dataset(size):
+        #     result["status"] = "generate_failed"
+        #     result["errors"].append("Ошибка генерации датасета")
+        #     return result
         
-        # Шаг 4: Копирование
-        if not self.copy_to_containers(size):
-            result["status"] = "copy_failed"
-            result["errors"].append("Ошибка копирования в контейнеры")
-            return result
+        # # Шаг 4: Копирование
+        # if not self.copy_to_containers(size):
+        #     result["status"] = "copy_failed"
+        #     result["errors"].append("Ошибка копирования в контейнеры")
+        #     return result
         
-        # Шаг 5: Загрузка
-        if not self.load_to_databases(size):
-            result["status"] = "load_failed"
-            result["errors"].append("Ошибка загрузки в базы данных")
-            return result
+        # # Шаг 5: Загрузка
+        # if not self.load_to_databases(size):
+        #     result["status"] = "load_failed"
+        #     result["errors"].append("Ошибка загрузки в базы данных")
+        #     return result
         
-        # Шаг 6: Финализация
-        if not self.finalize_initialize_databases(infrastructure_config):
-            result["status"] = "finalize_failed"
-            result["errors"].append("Ошибка финализации")
-            return result
+        # # Шаг 6: Финализация
+        # if not self.finalize_initialize_databases(infrastructure_config):
+        #     result["status"] = "finalize_failed"
+        #     result["errors"].append("Ошибка финализации")
+        #     return result
         
         # Шаг 7: Проверка
         if not self.inspect_databases():

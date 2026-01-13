@@ -115,8 +115,10 @@ def load_neo4j(csv_dir, batch_size=10000):
         driver = GraphDatabase.driver(NEO4J["uri"], auth=NEO4J["auth"])
         
         with driver.session() as session:
-            # 1. Загрузка пользователей (работает)
-            info("  • Загрузка пользователей через APOC...")
+            # 1. Загрузка пользователей
+            info("  • Загрузка...")
+
+            start_time = time.time()
             
             q_users = f"""
                 CALL apoc.periodic.iterate(
@@ -141,9 +143,12 @@ def load_neo4j(csv_dir, batch_size=10000):
             if users_count == 0:
                 fail("Neo4j: после загрузки количество User = 0")
 
-            info(f"    ✓ User загружено: {users_count}")
+            elapsed = time.time() - start_time
+            info(f"    ✓ Пользователей загружено: {users_count:,} ({elapsed:.2f} сек)")
             
             # 2. Загрузка связей
+            start_time = time.time()
+
             q_rels = f"""
                 CALL apoc.periodic.iterate(
                     "LOAD CSV WITH HEADERS FROM '{friends_csv}' AS row RETURN row",
@@ -166,7 +171,8 @@ def load_neo4j(csv_dir, batch_size=10000):
             if rels_count == 0:
                 fail("Neo4j: после загрузки количество relationships = 0")
 
-            info(f"    ✓ FRIENDS_WITH загружено: {rels_count}")
+            elapsed = time.time() - start_time
+            info(f"    ✓ Связей загружено: {rels_count:,} ({elapsed:.2f} сек)")
         
         driver.close()
         return True

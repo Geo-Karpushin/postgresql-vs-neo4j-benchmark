@@ -25,6 +25,10 @@ test-small:
 	@echo "🔬 Тестирование на SMALL датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py small
 
+test-very-small:
+	@echo "🔬 Тестирование на SMALL датасете..."
+	. venv/bin/activate && python scripts/dataset_manager.py very-small
+
 test-medium:
 	@echo "🔬 Тестирование на MEDIUM датасете..."
 	. venv/bin/activate && python scripts/dataset_manager.py medium

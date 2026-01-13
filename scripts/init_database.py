@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-ОПТИМИЗИРОВАННАЯ ИНИЦИАЛИЗАЦИЯ БАЗ ДАННЫХ
-Рабочая версия без ошибок
+МИНИМАЛИСТИЧНАЯ ИНИЦИАЛИЗАЦИЯ БАЗ ДАННЫХ
+Только необходимые индексы для ускорения запросов
 """
 
 import logging
 import psycopg2
 from neo4j import GraphDatabase
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-import concurrent.futures
 import time
 import sys
 
-# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -41,218 +39,172 @@ class DatabaseConfig:
     }
 
 class PostgresInitializer:
-    """Инициализатор PostgreSQL - РАБОЧАЯ версия"""
-    
     def __init__(self, config):
         self.config = config
+
+    def _get_connection(self):
+        return psycopg2.connect(**self.config)
     
-    def _get_connection(self, autocommit=True):
-        """Создание подключения"""
-        conn = psycopg2.connect(**self.config)
-        if autocommit:
-            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        return conn
-    
-    def init_schema_for_loading(self):
-        """Создание схемы для быстрой загрузки"""
-        logger.info("🗃️ PostgreSQL: Создание схемы...")
-        
+    def init_schema_with_indexes(self):
+        """Минимальные индексы для быстрой загрузки"""
         try:
             with self._get_connection() as conn:
+                conn.autocommit = True
                 with conn.cursor() as cursor:
-                    # 1. Пользователи
+                    # Таблицы без индексов для быстрой загрузки
                     cursor.execute("""
                         CREATE UNLOGGED TABLE users (
-                            user_id BIGINT PRIMARY KEY,
-                            name VARCHAR(100),
+                            user_id BIGSERIAL PRIMARY KEY,
+                            name VARCHAR(100) NOT NULL,
                             age INTEGER,
-                            city VARCHAR(50),
-                            registration_date DATE
+                            city VARCHAR(100),
+                            registration_date TIMESTAMP NOT NULL DEFAULT NOW()
                         );
                     """)
                     
-                    # 2. Связи дружбы - ИМЯ ДОЛЖНО СОВПАДАТЬ С ЗАГРУЗЧИКОМ!
                     cursor.execute("""
                         CREATE UNLOGGED TABLE friendships (
-                            user_id BIGINT NOT NULL,
-                            friend_id BIGINT NOT NULL,
-                            since DATE NOT NULL,
-                            PRIMARY KEY (user_id, friend_id)
+                            friendship_id BIGSERIAL PRIMARY KEY,
+                            user_id INTEGER NOT NULL,
+                            friend_id INTEGER NOT NULL,
+                            since TIMESTAMP NOT NULL DEFAULT NOW(),
+                            UNIQUE(user_id, friend_id),
+                            CONSTRAINT no_self_friendship CHECK (user_id != friend_id),
+                            FOREIGN KEY (user_id) REFERENCES users(user_id),
+                            FOREIGN KEY (friend_id) REFERENCES users(user_id)
                         );
                     """)
                     
-                logger.info("   • Созданы UNLOGGED таблицы: users и friendships")
-                logger.info("   • Имя таблицы: friendships (совместимо с загрузчиком)")
-            
-            logger.info("✅ PostgreSQL: Схема создана")
+                    # Только самые необходимые индексы для загрузки
+                    cursor.execute("""
+                        CREATE INDEX idx_friendships_user_friend 
+                        ON friendships(user_id, friend_id);
+                    """)
+                    
+                    cursor.execute("""
+                        CREATE INDEX idx_friendships_friend_user 
+                        ON friendships(friend_id, user_id);
+                    """)
             return True
-            
         except Exception as e:
-            logger.error(f"❌ Ошибка создания схемы PostgreSQL: {e}")
+            logger.error(f"PostgreSQL init error: {e}")
             return False
     
     def finalize_after_loading(self):
-        """Финальная оптимизация после загрузки данных"""
-        logger.info("🔄 PostgreSQL: Финальная оптимизация...")
-        
+        """Добавляем индексы для аналитических запросов"""
         try:
-            # 1. Включаем логирование таблиц и создаем индексы
-            conn = self._get_connection()
-            
-            with conn.cursor() as cursor:
-                # Включаем логирование таблиц
-                logger.info("   • Включаем логирование таблиц...")
-                cursor.execute("ALTER TABLE users SET LOGGED;")
-                cursor.execute("ALTER TABLE friendships SET LOGGED;")
-                
-                # Создаем индексы
-                logger.info("   • Создаем индексы...")
-                index_queries = [
-                    # Основные индексы для запросов
-                    "CREATE INDEX idx_friendships_user ON friendships(user_id);",
-                    "CREATE INDEX idx_friendships_friend ON friendships(friend_id);",
-                    "CREATE INDEX idx_friendships_since ON friendships(since);",
+            with self._get_connection() as conn:
+                conn.autocommit = True
+                with conn.cursor() as cursor:
+                    indexes_sql = [
+                        # Основные индексы
+                        ("idx_users_city", "CREATE INDEX idx_users_city ON users(city);"),
+                        ("idx_users_age", "CREATE INDEX idx_users_age ON users(age);"),
+                        ("idx_users_registration_date", "CREATE INDEX idx_users_registration_date ON users(registration_date);"),
+                        ("idx_friendships_since_btree", "CREATE INDEX idx_friendships_since_btree ON friendships(since);"),
+                        
+                        # Составные индексы
+                        ("idx_friendships_covering", "CREATE INDEX idx_friendships_covering ON friendships(user_id, friend_id) INCLUDE (since);"),
+                        ("idx_users_city_user_id", "CREATE INDEX idx_users_city_user_id ON users(city, user_id);"),
+
+                        # Частичные индексы
+                        ("idx_users_age_not_null", "CREATE INDEX idx_users_age_not_null ON users(age) WHERE age IS NOT NULL;"),
+                        
+                        # Специальные индексы
+                        ("idx_friendships_both_directions", "CREATE INDEX idx_friendships_composite_search ON friendships USING btree(LEAST(user_id, friend_id), GREATEST(user_id, friend_id));"),
+                        ("idx_friendships_since_brin", "CREATE INDEX idx_friendships_since_brin ON friendships USING brin(since);")
+                    ]
+
+                    for index_name, sql in indexes_sql:
+                        try:
+                            cursor.execute(f"DROP INDEX IF EXISTS {index_name};")
+                            cursor.execute(sql)
+                            logger.info(f"Создан индекс: {index_name}")
+                        except Exception as e:
+                            logger.error(f"Ошибка создания индекса {index_name}: {e}")
                     
-                    # Индексы для users
-                    "CREATE INDEX idx_users_city ON users(city);",
-                    "CREATE INDEX idx_users_age ON users(age);",
-                    "CREATE INDEX idx_users_registration ON users(registration_date);",
-                    
-                    # Составные индексы для оптимизации
-                    "CREATE INDEX idx_friendships_user_friend ON friendships(user_id, friend_id);",
-                    "CREATE INDEX idx_friendships_friend_user ON friendships(friend_id, user_id);",
-                ]
-                
-                for query in index_queries:
-                    try:
-                        cursor.execute(query)
-                    except Exception as e:
-                        logger.warning(f"   • Ошибка индекса: {e}")
-            
-            conn.close()
-            
-            # 2. VACUUM ANALYZE должен выполняться в отдельном соединении без транзакции
-            logger.info("   • Выполняем VACUUM ANALYZE...")
-            conn_vacuum = self._get_connection()
-            conn_vacuum.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-            
-            with conn_vacuum.cursor() as cursor:
-                cursor.execute("VACUUM ANALYZE users;")
-                cursor.execute("VACUUM ANALYZE friendships;")
-            
-            conn_vacuum.close()
-            
-            logger.info("✅ PostgreSQL: Финальная оптимизация завершена")
-            logger.info("   • Таблицы переведены в LOGGED режим")
-            logger.info("   • Созданы индексы")
-            logger.info("   • VACUUM ANALYZE выполнен")
-            
+                    # Анализ статистики
+                    cursor.execute("ANALYZE users;")
+                    cursor.execute("ANALYZE friendships;")
             return True
-            
         except Exception as e:
-            logger.error(f"❌ Ошибка финальной оптимизации PostgreSQL: {e}")
+            logger.error(f"PostgreSQL finalize error: {e}")
             return False
 
 class Neo4jInitializer:
-    """Инициализатор Neo4j - РАБОЧАЯ версия"""
-    
     def __init__(self, config):
-        self.config = config
-        self.driver = None
-    
-    def _get_driver(self):
-        """Создание драйвера Neo4j"""
-        return GraphDatabase.driver(
-            self.config["uri"],
-            auth=self.config["auth"],
-            max_connection_lifetime=self.config.get("max_connection_lifetime", 7200),
-            max_connection_pool_size=self.config.get("max_connection_pool_size", 50),
-            connection_timeout=self.config.get("connection_timeout", 30)
+        self.driver = GraphDatabase.driver(
+            config["uri"], 
+            auth=config["auth"],
+            max_connection_lifetime=config["max_connection_lifetime"],
+            max_connection_pool_size=config["max_connection_pool_size"],
+            connection_timeout=config["connection_timeout"]
         )
-    
-    def init_schema_for_loading(self):
-        """Создание минимальной схемы для загрузки"""
-        logger.info("🕸️ Neo4j: Инициализация схемы...")
-        
+
+    def init_schema_with_indexes(self):
         try:
-            self.driver = self._get_driver()
-            
             with self.driver.session() as session:
-                # Создаем constraint для user_id
-                logger.info("   • Создаем constraint для user_id...")
-                try:
-                    # Удаляем старый constraint если существует
-                    session.run("DROP CONSTRAINT user_id_unique IF EXISTS")
-                    
-                    # Создаем новый constraint
-                    session.run("""
-                        CREATE CONSTRAINT user_id_unique 
-                        FOR (u:User) REQUIRE u.user_id IS UNIQUE
-                    """)
-                    logger.info("   • Constraint создан успешно")
-                except Exception as e:
-                    logger.warning(f"   • Ошибка constraint: {e}")
-                    # Продолжаем, constraint может не создаваться если уже есть
-                
-                logger.info("   • Индексы будут созданы после загрузки данных")
-            
-            logger.info("✅ Neo4j: Схема создана")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Ошибка инициализации Neo4j: {e}")
-            return False
-        finally:
-            if self.driver:
-                self.driver.close()
-    
-    def create_indexes_after_loading(self):
-        """Создание индексов после загрузки данных"""
-        logger.info("🔍 Neo4j: Создание индексов...")
-        
-        try:
-            self.driver = self._get_driver()
-            
-            with self.driver.session() as session:
-                # Создаем индексы
-                logger.info("   • Создаем индексы...")
-                
-                indexes = [
-                    "CREATE INDEX IF NOT EXISTS FOR (u:User) ON (u.user_id)",
-                    "CREATE INDEX IF NOT EXISTS FOR (u:User) ON (u.city)",
-                    "CREATE INDEX IF NOT EXISTS FOR (u:User) ON (u.age)",
-                    "CREATE INDEX IF NOT EXISTS FOR (u:User) ON (u.registration_date)",
-                    "CREATE INDEX IF NOT EXISTS FOR ()-[r:FRIENDS_WITH]-() ON (r.since)",
+                queries = [
+                    """CREATE CONSTRAINT user_id_unique IF NOT EXISTS 
+                       FOR (u:User) REQUIRE u.user_id IS UNIQUE;""",
+                    """CREATE INDEX user_city_index IF NOT EXISTS 
+                       FOR (u:User) ON (u.city);""",
+                    """CREATE INDEX user_age_index IF NOT EXISTS 
+                       FOR (u:User) ON (u.age);"""
                 ]
                 
-                for idx_query in indexes:
-                    try:
-                        session.run(idx_query)
-                    except Exception as e:
-                        logger.warning(f"   • Ошибка индекса: {e}")
-                
-                # Ждем построения индексов
-                logger.info("   • Ожидаем построения индексов...")
-                try:
-                    session.run("CALL db.awaitIndexes(120)")
-                except:
-                    logger.warning("   • Пропускаем awaitIndexes")
-            
-            logger.info("✅ Neo4j: Индексы созданы")
+                for query in queries:
+                    session.run(query)
             return True
-            
         except Exception as e:
-            logger.error(f"❌ Ошибка создания индексов Neo4j: {e}")
+            logger.error(f"Neo4j init error: {e}")
             return False
-        finally:
-            if self.driver:
-                self.driver.close()
+    
+    def finalize_after_loading(self):
+        try:
+            with self.driver.session() as session:
+                indexes_neo4j = [
+                    # Добавляем индекс для since
+                    ("friendship_since_index", """
+                        CREATE INDEX friendship_since_index IF NOT EXISTS 
+                        FOR ()-[r:FRIENDS_WITH]-() ON (r.since);
+                    """),
 
-def initialize_for_loading():
-    """Инициализация для загрузки данных"""
+                    # Аналитика по датам
+                    ("user_registration_date_index", """
+                        CREATE INDEX user_registration_date_index IF NOT EXISTS
+                        FOR (u:User) ON (u.registration_date);
+                    """),
+                    
+                    # Составной индекс для частых фильтров
+                    ("user_city_age_index", """
+                        CREATE INDEX user_city_age_index IF NOT EXISTS 
+                        FOR (u:User) ON (u.city, u.age);
+                    """)
+                ]
+
+                for index_name, query in indexes_neo4j:
+                    try:
+                        session.run(query)
+                        logger.info(f"Создан индекс: {index_name}")
+                    except Exception as e:
+                        logger.error(f"Ошибка создания индекса {index_name}: {e}")
+                
+                # Собираем статистику
+                try:
+                    session.run("CALL db.stats.collect('GRAPH')")
+                except Exception as e:
+                    logger.error(f"⚠️  Ошибка сбора статистики: {e}")
+            return True
+        except Exception as e:
+            logger.error(f"Neo4j finalize error: {e}")
+            return False
+
+def initialize_with_indexes():
+    """Инициализация с минимальными индексами"""
     print("\n" + "="*60)
-    print("🚀 ИНИЦИАЛИЗАЦИЯ БАЗ ДАННЫХ ДЛЯ ЗАГРУЗКИ")
-    print("   Создание минимальных схем")
+    print("🚀 ИНИЦИАЛИЗАЦИЯ БАЗ ДАННЫХ С МИНИМАЛЬНЫМИ ИНДЕКСАМИ")
+    print("   Только необходимые индексы для ускорения запросов")
     print("="*60)
     
     start_time = time.time()
@@ -262,22 +214,11 @@ def initialize_for_loading():
     
     results = []
     
-    # Параллельная инициализация
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        future_pg = executor.submit(pg_init.init_schema_for_loading)
-        future_neo4j = executor.submit(neo4j_init.init_schema_for_loading)
-        
-        try:
-            results.append(("PostgreSQL", future_pg.result(timeout=30)))
-        except Exception as e:
-            logger.error(f"PostgreSQL timeout: {e}")
-            results.append(("PostgreSQL", False))
-        
-        try:
-            results.append(("Neo4j", future_neo4j.result(timeout=30)))
-        except Exception as e:
-            logger.error(f"Neo4j timeout: {e}")
-            results.append(("Neo4j", False))
+    print("\n1️⃣ PostgreSQL: Создание схемы с индексами...")
+    results.append(("PostgreSQL", pg_init.init_schema_with_indexes()))
+    
+    print("\n2️⃣ Neo4j: Создание схемы с индексами...")
+    results.append(("Neo4j", neo4j_init.init_schema_with_indexes()))
     
     success = all(result[1] for result in results)
     elapsed_time = time.time() - start_time
@@ -292,7 +233,7 @@ def initialize_for_loading():
     
     if success:
         print(f"\n⏱️  Время выполнения: {elapsed_time:.2f} секунд")
-        print("\n💡 БАЗЫ ДАННЫХ ГОТОВЫ К ЗАГРУЗКЕ")
+        print("\n⚡ БАЗЫ ДАННЫХ ГОТОВЫ К ЗАГРУЗКЕ ДАННЫХ")
         return True
     else:
         print("\n❌ ИНИЦИАЛИЗАЦИЯ НЕ УДАЛАСЬ")
@@ -302,7 +243,7 @@ def finalize_after_loading():
     """Финальная оптимизация после загрузки данных"""
     print("\n" + "="*60)
     print("🔄 ФИНАЛЬНАЯ ОПТИМИЗАЦИЯ ПОСЛЕ ЗАГРУЗКИ")
-    print("   Создание индексов и оптимизация")
+    print("   Обновление статистики для оптимизатора запросов")
     print("="*60)
     
     start_time = time.time()
@@ -312,12 +253,11 @@ def finalize_after_loading():
     
     results = []
     
-    # Последовательная оптимизация
-    print("\n1️⃣ PostgreSQL: Оптимизация...")
+    print("\n1️⃣ PostgreSQL: Оптимизация после загрузки...")
     results.append(("PostgreSQL", pg_init.finalize_after_loading()))
     
-    print("\n2️⃣ Neo4j: Создание индексов...")
-    results.append(("Neo4j", neo4j_init.create_indexes_after_loading()))
+    print("\n2️⃣ Neo4j: Оптимизация после загрузки...")
+    results.append(("Neo4j", neo4j_init.finalize_after_loading()))
     
     success = all(result[1] for result in results)
     elapsed_time = time.time() - start_time
@@ -332,7 +272,7 @@ def finalize_after_loading():
     
     if success:
         print(f"\n⏱️  Общее время: {elapsed_time:.2f} секунд")
-        print("\n🎉 БАЗЫ ДАННЫХ ГОТОВЫ К ТЕСТИРОВАНИЮ")
+        print("\n🎉 БАЗЫ ДАННЫХ ОПТИМИЗИРОВАНЫ И ГОТОВЫ К ТЕСТИРОВАНИЮ")
         return True
     else:
         print("\n⚠️  НЕКОТОРЫЕ ОПЕРАЦИИ НЕ ВЫПОЛНЕНЫ")
@@ -342,22 +282,33 @@ def main():
     """Основная функция"""
     print("\n" + "="*60)
     print("🗄️  МЕНЕДЖЕР ИНИЦИАЛИЗАЦИИ БАЗ ДАННЫХ")
+    print("   Минималистичная версия с рабочими индексами")
     print("="*60)
     
     if len(sys.argv) > 1:
         command = sys.argv[1].lower()
         
         if command == "init":
-            return initialize_for_loading()
+            return initialize_with_indexes()
         elif command == "finalize":
             return finalize_after_loading()
+        elif command == "help":
+            print("Доступные команды:")
+            print("  init     - Создание схемы с минимальными индексами")
+            print("  finalize - Обновление статистики после загрузки данных")
+            print("\nОсобенности этой версии:")
+            print("  • Только необходимые индексы для ускорения запросов")
+            print("  • Минимальная конфигурация для обеих СУБД")
+            print("  • Быстрая инициализация")
+            return True
         else:
             print(f"Неизвестная команда: {command}")
-            print("Доступные команды: init, finalize")
+            print("Используйте: init, finalize, help")
             return False
     else:
-        print("Ошибка синтаксиса команды")
-        print("Укажите параметр: init, finalize")
+        print("Ошибка: укажите команду")
+        print("Пример: python init_databases.py init")
+        print("Используйте 'help' для справки")
         return False
 
 if __name__ == "__main__":

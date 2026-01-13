@@ -21,6 +21,7 @@ from benchmark_queries import (
 BATCH_SIZE = 1000
 ITER_PROGRESS_PRINT_EVERY = 1
 MAX_BFS_NEIGHBORS_FETCH = 10000
+WARMUP_ITERATIONS = 2
 
 logging.basicConfig(
     level=logging.INFO,
@@ -457,6 +458,18 @@ class BenchmarkRunner:
                 params = []
             else:
                 params = self._build_pg_params(qn, userA, userB)
+            
+            # Проверяем соответствие параметров и плейсхолдеров
+            placeholder_count = sql.count('%s')
+            if len(params) != placeholder_count:
+                log.warning(f"⚠️ Несоответствие параметров для {qn}: "
+                        f"ожидается {placeholder_count} плейсхолдеров, "
+                        f"передано {len(params)} параметров")
+                # Для безопасности пропускаем запрос, если параметры не совпадают
+                self.results["postgres"][qn] = self._pack_result(
+                    desc, [], 0, iterations
+                )
+                continue
 
             tqdm_desc = f"PG {qn} ({iterations} runs)"
             pbar = tqdm(total=iterations, desc=tqdm_desc, ncols=100)
@@ -465,32 +478,72 @@ class BenchmarkRunner:
             results_count = 0
 
             for i in range(iterations):
-                t0 = time.perf_counter()
-
-                with conn.cursor() as cur:
+                try:
+                    # Перед каждым запросом убедимся, что нет активной транзакции
                     try:
-                        cur.execute(sql, params)
-                        cnt = 0
-                        while True:
-                            batch = cur.fetchmany(BATCH_SIZE)
-                            if not batch:
-                                break
-                            cnt += len(batch)
-                        
-                        if i == 0:
-                            results_count = cnt
-                            
-                    except Exception as e:
-                        log.error("PG %s SQL error: %s", qn, e)
-                        try: 
-                            conn.rollback()
-                        except: 
-                            pass
-                        pbar.update(1)
-                        continue
+                        conn.rollback()
+                    except:
+                        pass
+                    
+                    t0 = time.perf_counter()
 
-                t1 = time.perf_counter()
-                times.append(t1 - t0)
+                    with conn.cursor() as cur:
+                        try:
+                            cur.execute(sql, params)
+                            cnt = 0
+                            while True:
+                                batch = cur.fetchmany(BATCH_SIZE)
+                                if not batch:
+                                    break
+                                cnt += len(batch)
+                            
+                            if i == 0:
+                                results_count = cnt
+                                
+                        except Exception as e:
+                            log.error(f"PG {qn} SQL error (итерация {i+1}): {e}")
+                            # Пытаемся восстановить соединение
+                            try: 
+                                conn.rollback()
+                            except Exception as rollback_err:
+                                log.warning(f"Не удалось выполнить rollback: {rollback_err}")
+                                # Если rollback не помогает, переподключаемся
+                                try:
+                                    conn.close()
+                                except:
+                                    pass
+                                conn = self.connect_postgres()
+                                if conn is None:
+                                    log.error("Не удалось восстановить соединение с PostgreSQL")
+                                    pbar.close()
+                                    conn.close()
+                                    return False
+                            
+                            pbar.update(1)
+                            continue
+                    
+                    t1 = time.perf_counter()
+                    times.append(t1 - t0)
+                    
+                    # Явный commit после успешного запроса (опционально)
+                    try:
+                        conn.commit()
+                    except:
+                        pass
+                        
+                except Exception as e:
+                    log.error(f"PG {qn} общая ошибка (итерация {i+1}): {e}")
+                    # Пытаемся восстановить соединение
+                    try:
+                        conn.close()
+                    except:
+                        pass
+                    conn = self.connect_postgres()
+                    if conn is None:
+                        log.error("Не удалось восстановить соединение с PostgreSQL")
+                        pbar.close()
+                        return False
+                
                 pbar.update(1)
 
             pbar.close()
@@ -505,75 +558,78 @@ class BenchmarkRunner:
         return True
 
     def run_neo4j_benchmarks(self, userA, userB):
-        """Запуск всех запросов Neo4j (базовых и аналитических)"""
         driver = self.connect_neo4j()
         if driver is None:
             log.error("Neo4j недоступен")
             return False
-
-        # Объединяем базовые и аналитические запросы
+        
         all_neo4j_queries = {**NEO4J_QUERIES, **NEO4J_ANALYTICAL_QUERIES}
         
-        log.info(f"Доступно запросов Neo4j: {len(all_neo4j_queries)}")
-
         for qn in self.query_runs_config:
             if qn not in all_neo4j_queries:
-                log.warning(f"Запрос {qn} из конфигурации не найден в Neo4j")
                 continue
                 
             qi = all_neo4j_queries[qn]
             iterations = self.query_runs_config.get(qn, 1)
-            desc = qi.get("description", "")
             query = qi["query"]
             
-            # Для аналитических запросов параметры не нужны
             if qn in NEO4J_ANALYTICAL_QUERIES:
                 params = {}
             else:
                 params = self._build_neo_params(qn, userA, userB)
-
-            tqdm_desc = f"Neo4j {qn} ({iterations} runs)"
-            pbar = tqdm(total=iterations, desc=tqdm_desc, ncols=100)
-
+            
+            pbar = tqdm(total=iterations, desc=f"Neo4j {qn}", ncols=100)
             times = []
             results_count = 0
-
+            
+            # Создаем сессию один раз для всех итераций (если возможно)
+            session = driver.session()
+            
             for i in range(iterations):
                 try:
-                    with driver.session() as session:
-                        t0 = time.perf_counter()
-                        result = session.run(query, params)
-                        cnt = sum(1 for _ in result)
-                        t1 = time.perf_counter()
-
+                    t0 = time.perf_counter()
+                    
+                    # Используем consume() для быстрого получения всех результатов
+                    # без обработки в Python
+                    result = session.run(query, params)
+                    result.consume()  # Получаем результаты, но не обрабатываем
+                    
+                    t1 = time.perf_counter()
+                    
+                    # Для подсчета строк выполняем отдельный запрос (только для первой итерации)
                     if i == 0:
-                        results_count = cnt
-
-                    times.append(t1 - t0)
+                        count_result = session.run(query, params)
+                        results_count = sum(1 for _ in count_result)
+                    
+                    if i >= WARMUP_ITERATIONS:
+                        times.append(t1 - t0)
+                    
                 except Exception as e:
                     log.error("Neo4j %s error: %s", qn, e)
-
+                
                 pbar.update(1)
-
+            
+            session.close()
             pbar.close()
-            self.results["neo4j"][qn] = self._pack_result(desc, times, results_count, iterations)
-
-        try: driver.close()
-        except: pass
+            
+            self.results["neo4j"][qn] = self._pack_result(
+                qi.get("description", ""), times, results_count, iterations
+            )
         
+        driver.close()
         return True
 
     def _build_pg_params(self, qn, A, B):
         if qn == "simple_friends":
-            return [A, A]
-        if qn == "friends_of_friends":
             return [A, A, A]
+        if qn == "friends_of_friends":
+            return [A, A, A, A]
         if qn == "mutual_friends":
-            return [A, A, B, B]
+            return [A, A, A, B, B, B]
         if qn == "friend_recommendations":
             return [A, A, A]
         if qn == "shortest_path":
-            return [A, B]
+            return [A, A, B, B]
         return []
 
     def _build_neo_params(self, qn, A, B):
